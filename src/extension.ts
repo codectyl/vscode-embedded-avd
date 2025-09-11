@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import { EmulatorManager } from "./emulatorManager";
+import path from "path";
+import fs from "fs";
 
 export function activate(context: vscode.ExtensionContext) {
   let panel: vscode.WebviewPanel | undefined;
@@ -62,6 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
       );
 
       // Start emulator and connect gRPC
+
+      // TODO: When to start and stream the emulator
       emulatorManager.startEmulator(emulatorPath, avdName, 8554);
       setTimeout(() => emulatorManager.connectGrpc(8554), 5000); // Wait for emulator to start
 
@@ -75,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
         });
       }, 1000); // ~10 FPS
 
-      panel.webview.html = getWebviewContent(panel.webview);
+      panel.webview.html = getWebviewContent(context, panel.webview);
 
       panel.webview.onDidReceiveMessage((msg) => {
         if (msg.type === "touch") {
@@ -107,63 +111,22 @@ function getNonce() {
   return text;
 }
 
-function getWebviewContent(webview: vscode.Webview) {
+function getWebviewContent(
+  context: vscode.ExtensionContext,
+  webview: vscode.Webview
+) {
   const nonce = getNonce();
-  return `
-    <html>
-    <head>
-    	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
 
-			
-    </head>
-    <body>
-      <div>Hello world</div>
-      <canvas id="emulatorCanvas" width="720" height="1280" tabindex="0" style="outline:none;"></canvas>
-      <script>
-        const vscode = acquireVsCodeApi();
-        const canvas = document.getElementById('emulatorCanvas');
-        const ctx = canvas.getContext('2d');
-        window.addEventListener('message', event => {
-          if (event.data.type === 'frame') {
-            const img = new Image();
-            img.src = 'data:image/png;base64,' + event.data.data;
-            img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          }
-        });
+  const htmlPath = path.join(context.extensionPath, "webview-ui", "index.html");
 
-        // Multi-touch support
-        let touches = [];
-        canvas.addEventListener('pointerdown', e => {
-          touches.push({ id: e.pointerId, x: e.offsetX, y: e.offsetY, pressure: e.pressure || 1, type: 'DOWN' });
-          canvas.setPointerCapture(e.pointerId);
-          vscode.postMessage({ type: 'multiTouch', touches });
-        });
-        canvas.addEventListener('pointermove', e => {
-          const idx = touches.findIndex(t => t.id === e.pointerId);
-          if (idx !== -1) {
-            touches[idx].x = e.offsetX;
-            touches[idx].y = e.offsetY;
-            touches[idx].pressure = e.pressure || 1;
-            touches[idx].type = 'MOVE';
-            vscode.postMessage({ type: 'multiTouch', touches });
-          }
-        });
-        canvas.addEventListener('pointerup', e => {
-          const idx = touches.findIndex(t => t.id === e.pointerId);
-          if (idx !== -1) {
-            touches[idx].type = 'UP';
-            vscode.postMessage({ type: 'multiTouch', touches });
-            touches.splice(idx, 1);
-          }
-        });
+  console.log("reading html from", htmlPath);
+  let html = fs.readFileSync(htmlPath, "utf8");
 
-        // Keyboard support
-        canvas.addEventListener('keydown', e => {
-          vscode.postMessage({ type: 'key', key: e.key, code: e.code, keyCode: e.keyCode, ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey });
-        });
-        canvas.focus();
-      </script>
-    </body>
-    </html>
-  `;
+  html = html.replace(
+    "{{ meta }}",
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">`
+  );
+  html = html.replace("{{nonce}}", nonce);
+
+  return html;
 }
