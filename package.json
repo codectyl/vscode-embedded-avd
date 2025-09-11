@@ -41,7 +41,8 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.7.0",
-    "@grpc/grpc-js": "^1.9.7"
+    "@grpc/grpc-js": "^1.9.7",
+    "sharp": "^0.34.3"
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",

@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { EmulatorManager } from "./emulatorManager";
 import path from "path";
 import fs from "fs";
+import MediaUtils from "./utils/media";
+import { template } from "./utils/helpers";
 
 export function activate(context: vscode.ExtensionContext) {
   let panel: vscode.WebviewPanel | undefined;
@@ -42,7 +44,12 @@ export function activate(context: vscode.ExtensionContext) {
         "androidEmulator",
         "Android Emulator",
         vscode.ViewColumn.One,
-        { enableScripts: true }
+        {
+          enableScripts: true,
+          localResourceRoots: [
+            vscode.Uri.file(path.join(context.extensionPath, "webview-ui")),
+          ],
+        }
       );
 
       // Read configuration
@@ -71,10 +78,15 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Periodically fetch screenshot and send to WebView
       const interval = setInterval(() => {
-        emulatorManager.getScreenshot((image: Buffer) => {
+        emulatorManager.getScreenshot(async (image: Buffer) => {
+          if (!image) {
+            return;
+          }
+          const compressedImage = await MediaUtils.compressImage(image);
+          console.log("Compressed image size:", compressedImage?.length);
           panel?.webview.postMessage({
             type: "frame",
-            data: image.toString("base64"),
+            data: compressedImage?.toString("base64"),
           });
         });
       }, 1000); // ~10 FPS
@@ -115,18 +127,26 @@ function getWebviewContent(
   context: vscode.ExtensionContext,
   webview: vscode.Webview
 ) {
+  const scriptUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(context.extensionUri, "webview-ui", "main.js")
+  );
+
+  const styleMainUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(context.extensionUri, "webview-ui", "main.css")
+  );
+
   const nonce = getNonce();
 
   const htmlPath = path.join(context.extensionPath, "webview-ui", "index.html");
 
-  console.log("reading html from", htmlPath);
   let html = fs.readFileSync(htmlPath, "utf8");
 
-  html = html.replace(
-    "{{ meta }}",
-    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">`
-  );
-  html = html.replace("{{nonce}}", nonce);
+  html = template(html, {
+    nonce: nonce,
+    cspSource: webview.cspSource,
+    scriptUri: scriptUri.toString(),
+    stylesMainUri: styleMainUri.toString(),
+  });
 
   return html;
 }

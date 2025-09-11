@@ -89,10 +89,6 @@ export class EmulatorManager {
     this.grpcClient.getScreenshot(
       ImageFormat.create({ format: ImageFormat_ImgFormat.PNG }),
       (err: any, response: any) => {
-        console.log("getScreenshot response:", err, {
-          responseImageLength: response.image?.length,
-        });
-
         if (!err && response && response.image) {
           callback(response.image);
         }
