@@ -1,5 +1,5 @@
-import cp from "child_process";
-import * as grpc from "@grpc/grpc-js";
+import cp from 'child_process';
+import * as grpc from '@grpc/grpc-js';
 import {
   EmulatorControllerClient,
   ImageFormat,
@@ -7,24 +7,21 @@ import {
   KeyboardEvent,
   Touch,
   TouchEvent,
-} from "./generated/emulator_controller";
+} from './generated/emulator_controller';
+import {
+  KeyPressPayload,
+  MultiTouchPayload,
+  TouchPayload,
+} from './interfaces/payload';
 
 export class EmulatorManager {
   private emulatorProcess?: cp.ChildProcess;
   private grpcClient: EmulatorControllerClient | null = null;
 
   // Multi-touch event forwarding
-  sendMultiTouch(
-    touches: Array<{
-      id: number;
-      x: number;
-      y: number;
-      pressure: number;
-      type: string;
-    }>
-  ) {
+  sendMultiTouch({ touches }: MultiTouchPayload) {
     if (!this.grpcClient) {
-      throw new Error("gRPC client not connected");
+      throw new Error('gRPC client not connected');
     }
     const protoTouches = touches.map((t) => ({
       x: t.x,
@@ -41,17 +38,9 @@ export class EmulatorManager {
   }
 
   // Keyboard event forwarding
-  sendKey(msg: {
-    key: string;
-    code: string;
-    keyCode: number;
-    ctrl: boolean;
-    alt: boolean;
-    shift: boolean;
-    meta: boolean;
-  }) {
+  sendKey(msg: KeyPressPayload) {
     if (!this.grpcClient) {
-      throw new Error("gRPC client not connected");
+      throw new Error('gRPC client not connected');
     }
 
     const event = KeyboardEvent.create({
@@ -63,42 +52,43 @@ export class EmulatorManager {
   startEmulator(
     emulatorPath: string,
     avdName: string,
-    grpcPort: number = 8554
+    grpcPort: number = 8554,
   ) {
     this.emulatorProcess = cp.spawn(
       emulatorPath,
-      ["-avd", avdName, "-grpc", grpcPort.toString(), "-gpu", "auto"],
-      { stdio: "ignore" }
+      ['-avd', avdName, '-grpc', grpcPort.toString(), '-gpu', 'auto'],
+      { stdio: 'ignore' },
     );
   }
 
   connectGrpc(grpcPort: number = 8554) {
-    console.log("Connecting to gRPC on port", grpcPort);
+    console.log('Connecting to gRPC on port', grpcPort);
     this.grpcClient = new EmulatorControllerClient(
       `localhost:${grpcPort}`,
-      grpc.credentials.createInsecure()
+      grpc.credentials.createInsecure(),
     );
-    console.log("Connected to gRPC", this.grpcClient);
+    console.log('Connected to gRPC', this.grpcClient);
   }
 
-  getScreenshot(callback: (image: Buffer) => void) {
+  getScreenshot(callback: (image: Uint8Array) => void) {
     if (!this.grpcClient) {
-      throw new Error("gRPC client not connected");
+      throw new Error('gRPC client not connected');
     }
 
     this.grpcClient.getScreenshot(
       ImageFormat.create({ format: ImageFormat_ImgFormat.PNG }),
-      (err: any, response: any) => {
+      (err, response) => {
         if (!err && response && response.image) {
           callback(response.image);
         }
-      }
+      },
     );
   }
 
-  sendTouch(x: number, y: number) {
+  // @Deprecated- Use sendMultiTouch instead. Maybe remove it later
+  sendTouch({ x, y }: TouchPayload) {
     if (!this.grpcClient) {
-      throw new Error("gRPC client not connected");
+      throw new Error('gRPC client not connected');
     }
 
     const touch = Touch.create({
@@ -113,7 +103,7 @@ export class EmulatorManager {
     });
     this.grpcClient.sendTouch(
       TouchEvent.create({ touches: [touch] }),
-      () => {}
+      () => {},
     );
   }
 
