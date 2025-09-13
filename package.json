@@ -54,9 +54,9 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile": "rspack",
+    "watch": "rspack --watch",
+    "package": "rspack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "format": "prettier --write .",
@@ -79,7 +79,6 @@
     "@vscode/test-electron": "^2.5.2",
     "babel-loader": "^10.0.0",
     "babel-preset-solid": "^1.9.9",
-    "copy-webpack-plugin": "^13.0.1",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.8",
     "npm-run-all": "^4.1.5",
@@ -88,8 +87,6 @@
     "solid-refresh": "^0.7.5",
     "ts-loader": "^9.5.4",
     "ts-proto": "^2.7.7",
-    "typescript": "^5.9.2",
-    "webpack": "^5.101.3",
-    "webpack-cli": "^6.0.1"
+    "typescript": "^5.9.2"
   }
 }
