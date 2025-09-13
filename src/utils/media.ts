@@ -28,6 +28,7 @@ class MediaUtils {
       };
     } catch (err) {
       console.error('Error compressing image:', err);
+      return;
     }
   }
 }

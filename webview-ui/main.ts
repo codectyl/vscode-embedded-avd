@@ -3,7 +3,6 @@ import {
   type KeyPressPayload,
   type MultiTouchPayload,
 } from '../src/interfaces/payload';
-import { acquireVsCodeApi } from './global';
 
 window.addEventListener('DOMContentLoaded', () => {
   const vscode = acquireVsCodeApi();

@@ -15,3 +15,5 @@ vsc-extension-quickstart.md
 pnpm-lock.yaml
 tsconfig.json
 webpack.config.js
+
+webview-ui/**

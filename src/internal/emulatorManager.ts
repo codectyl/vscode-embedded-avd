@@ -7,12 +7,12 @@ import {
   KeyboardEvent,
   Touch,
   TouchEvent,
-} from './generated/emulator_controller';
+} from '../generated/emulator_controller';
 import {
   KeyPressPayload,
   MultiTouchPayload,
   TouchPayload,
-} from './interfaces/payload';
+} from '../interfaces/payload';
 
 export class EmulatorManager {
   private emulatorProcess?: cp.ChildProcess;

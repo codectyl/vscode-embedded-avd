@@ -4,6 +4,7 @@
 
 const CopyPlugin = require('copy-webpack-plugin');
 const path = require('path');
+const { HotModuleReplacementPlugin } = require('webpack');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -11,8 +12,6 @@ const path = require('path');
 /** @type WebpackConfig */
 const extensionConfig = {
   target: 'node', // VS Code extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
-  mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
-
   entry: './src/extension.ts', // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
   output: {
     // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
@@ -49,32 +48,35 @@ const extensionConfig = {
 };
 
 /** @type WebpackConfig */
-const webviewUIConfig = {
-  target: 'web', // for browser
-  mode: 'none', // or "development" or "production"
-  entry: './webview-ui/main.ts',
+const newConfig = {
+  entry: './webview-ui/src/index.tsx',
   output: {
     filename: 'main.js', // compiled JS
     path: path.resolve(__dirname, 'dist/webview-ui'),
   },
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.tsx', '.ts', '.js', '.json'],
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {
-        test: /\.ts$/,
+        test: /\.(ts)x?$/,
         exclude: /node_modules/,
         use: {
-          loader: 'ts-loader',
+          loader: 'babel-loader',
           options: {
-            configFile: 'webview-ui/tsconfig.json',
+            babelrc: false,
+            configFile: false,
+            presets: ['@babel/preset-env', 'solid', '@babel/preset-typescript'],
+            plugins: ['solid-refresh/babel', {bundler: 'webpack5'}],
           },
         },
       },
     ],
   },
   plugins: [
+    new HotModuleReplacementPlugin(),
     new CopyPlugin({
       patterns: [
         { from: 'webview-ui/index.html', to: 'index.html' },
@@ -82,7 +84,15 @@ const webviewUIConfig = {
       ],
     }),
   ],
-  devtool: 'source-map',
 };
 
-module.exports = [extensionConfig, webviewUIConfig];
+module.exports = (_, argv) => {
+  if (argv.mode === 'production') {
+    extensionConfig.mode = 'production';
+    newConfig.mode = 'production';
+  } else {
+    extensionConfig.mode = 'development';
+    newConfig.mode = 'development';
+  }
+  return [extensionConfig, newConfig];
+};
