@@ -1,8 +1,9 @@
 'use strict';
 
 import type { Configuration } from '@rspack/core';
-const rspack = require('@rspack/core');
-const path = require('path');
+import rspack from '@rspack/core';
+import path from 'path';
+import fs from 'fs/promises';
 
 const extensionConfig: Configuration = {
   target: 'node',
@@ -11,7 +12,6 @@ const extensionConfig: Configuration = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2',
-    // clean: true,
   },
   externals: {
     sharp: 'commonjs sharp',
@@ -47,8 +47,9 @@ const extensionConfig: Configuration = {
 const newConfig: Configuration = {
   entry: './webview-ui/src/index.tsx',
   output: {
-    filename: 'main.js', // compiled JS
-    path: path.resolve(__dirname, 'dist/webview-ui'),
+    // Should be in sync with the scriptUri in webviewManager.ts
+    filename: 'main.js',
+    path: path.resolve(__dirname, 'dist', 'webview-ui'),
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.json'],
@@ -69,16 +70,34 @@ const newConfig: Configuration = {
           },
         },
       },
+      {
+        test: /\.css$/,
+        use: [
+          rspack.CssExtractRspackPlugin.loader,
+          'css-loader',
+          'postcss-loader',
+        ],
+        type: 'javascript/auto',
+      },
     ],
+  },
+  experiments: {
+    css: false,
   },
   plugins: [
     new rspack.CopyRspackPlugin({
       patterns: [
-        { from: 'webview-ui/index.html', to: 'index.html' },
-        { from: 'webview-ui/main.css', to: 'main.css' },
+        { from: 'webview-ui/index.html', to: 'index.html' }, // Should be in sync with the htmlPath in webviewManager.ts
       ],
+    }),
+    new rspack.CssExtractRspackPlugin({
+      filename: 'css/main.css', // Should be in sync with the stylesUri in webviewManager.ts
     }),
   ],
 };
 
-module.exports = [extensionConfig, newConfig];
+export default async () => {
+  // Clean the output directory before each run to avoid using previous builds
+  await fs.rm('dist', { recursive: true, force: true });
+  return [extensionConfig, newConfig];
+};
