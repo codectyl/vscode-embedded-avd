@@ -1,12 +1,15 @@
 import cp from 'child_process';
 import * as grpc from '@grpc/grpc-js';
 import {
+  DisplayConfigurations,
   EmulatorControllerClient,
   EmulatorStatus,
   Image,
   ImageFormat,
   ImageFormat_ImgFormat,
   KeyboardEvent,
+  KeyboardEvent_KeyCodeType,
+  KeyboardEvent_KeyEventType,
   Touch,
 } from '../generated/emulator_controller';
 import {
@@ -14,66 +17,55 @@ import {
   MultiTouchPayload,
   TouchPayload,
 } from '../interfaces/payload';
-import { grpcAsync } from '../utils/grpc';
 import { GRPCClientNotConnectedError } from '../errors/error';
-import configurationStore from '../contributes/configuration';
+import { GRPCAsync } from '../utils/grpc';
 
 function ensureGRPCClientConnected(
   grpcClient: EmulatorControllerClient | null,
 ): asserts grpcClient is EmulatorControllerClient {
+  // TODO: More robust check can be added later ??
   if (!grpcClient) {
     throw new GRPCClientNotConnectedError();
   }
 }
 
 export class EmulatorManager {
-  private emulatorProcess?: cp.ChildProcess;
-  private grpcClient: EmulatorControllerClient | null = null;
-
-  startEmulator(avdName: string, grpcPort: number = 8554) {
-    const emulatorPath = configurationStore.emulatorPath;
-    this.emulatorProcess = cp.spawn(
-      emulatorPath,
-      [
-        '-avd',
-        avdName,
-        '-grpc',
-        grpcPort.toString(),
-        '-gpu',
-        'auto',
-        '-no-window',
-      ],
-      { stdio: 'ignore' },
-    );
-    this.emulatorProcess.on('exit', (code, signal) => {
-      console.log(
-        `Emulator ${avdName} process exited with code ${code} and signal ${signal}`,
-      );
-      this.grpcClient?.close();
-      this.grpcClient = null;
-    });
-  }
+  constructor(
+    public avdName: string,
+    public emulatorProcess: cp.ChildProcess,
+    public grpcClient: EmulatorControllerClient,
+  ) {}
 
   async getEmulatorStatus(): Promise<EmulatorStatus> {
     ensureGRPCClientConnected(this.grpcClient);
-    return await grpcAsync(this.grpcClient.getStatus, {});
+    return await GRPCAsync(this.grpcClient).run(this.grpcClient.getStatus, {});
+  }
+
+  async getDisplayConfigs(): Promise<DisplayConfigurations> {
+    ensureGRPCClientConnected(this.grpcClient);
+    return await GRPCAsync(this.grpcClient).run(
+      this.grpcClient.getDisplayConfigurations,
+      {},
+    );
   }
 
   // Multi-touch event forwarding
   async sendMultiTouch({ touches }: MultiTouchPayload) {
     ensureGRPCClientConnected(this.grpcClient);
-    const protoTouches = touches.map((t) => ({
-      x: t.x,
-      y: t.y,
-      pressure: t.pressure,
-      type: t.type,
-      identifier: t.id,
-      touchMajor: 1,
-      touchMinor: 1,
-      expiration: 0,
-      orientation: 0,
-    }));
-    await grpcAsync(this.grpcClient.sendTouch, {
+    const protoTouches: Touch[] = touches.map(
+      (t) =>
+        ({
+          x: t.x,
+          y: t.y,
+          pressure: t.type === 'up' ? 0 : 1,
+          identifier: t.id,
+          touchMajor: 1,
+          touchMinor: 1,
+          expiration: 0,
+          orientation: 0,
+        }) satisfies Touch,
+    );
+    await GRPCAsync(this.grpcClient).run(this.grpcClient.sendTouch, {
       touches: protoTouches,
       display: 0,
     });
@@ -81,62 +73,91 @@ export class EmulatorManager {
 
   // Keyboard event forwarding
   sendKey(msg: KeyPressPayload) {
-    if (!this.grpcClient) {
-      throw new Error('gRPC client not connected');
-    }
+    ensureGRPCClientConnected(this.grpcClient);
 
     const event = KeyboardEvent.create({
       key: msg.key,
+      keyCode: msg.keyCode,
     });
-    return grpcAsync(this.grpcClient.sendKey, event);
+
+    switch (process.platform) {
+      case 'darwin':
+        event.codeType = KeyboardEvent_KeyCodeType.Mac;
+        break;
+      case 'win32':
+        event.codeType = KeyboardEvent_KeyCodeType.Win;
+        break;
+      case 'linux':
+      case 'freebsd':
+        event.codeType = KeyboardEvent_KeyCodeType.XKB;
+        break;
+      default:
+        event.codeType = KeyboardEvent_KeyCodeType.Usb;
+    }
+
+    switch (msg.eventType) {
+      case 'keydown':
+        event.eventType = KeyboardEvent_KeyEventType.keydown;
+        break;
+      case 'keyup':
+        event.eventType = KeyboardEvent_KeyEventType.keyup;
+        break;
+      case 'keypress':
+        event.eventType = KeyboardEvent_KeyEventType.keypress;
+        break;
+    }
+
+    return GRPCAsync(this.grpcClient).run(this.grpcClient.sendKey, event);
   }
 
-  connectGrpc(grpcPort: number = 8554) {
-    console.log('Connecting to gRPC on port', grpcPort);
-    this.grpcClient = new EmulatorControllerClient(
-      `localhost:${grpcPort}`,
-      grpc.credentials.createInsecure(),
-    );
-    console.log('Connected to gRPC', this.grpcClient);
-  }
-
-  async getScreenshot(): Promise<Image> {
+  async getScreenshot({
+    width,
+    height,
+  }: {
+    width?: number;
+    height?: number;
+  } = {}): Promise<Image> {
     ensureGRPCClientConnected(this.grpcClient);
-    return await grpcAsync(
+    return await GRPCAsync(this.grpcClient).run(
       this.grpcClient.getScreenshot,
-      ImageFormat.create({ format: ImageFormat_ImgFormat.PNG }),
+      ImageFormat.create({
+        format: ImageFormat_ImgFormat.PNG,
+        width: width ?? 0,
+        height: height ?? 0,
+      }),
     );
   }
 
-  async streamScreenshot(): Promise<grpc.ClientReadableStream<Image>> {
+  streamScreenshot({
+    width,
+    height,
+  }: {
+    width?: number;
+    height?: number;
+  } = {}): grpc.ClientReadableStream<Image> {
     ensureGRPCClientConnected(this.grpcClient);
     return this.grpcClient.streamScreenshot(
-      ImageFormat.create({ format: ImageFormat_ImgFormat.PNG }),
+      ImageFormat.create({
+        format: ImageFormat_ImgFormat.PNG,
+        width: width ?? 0,
+        height: height ?? 0,
+      }),
     );
   }
 
-  // @Deprecated- Use sendMultiTouch instead. Maybe remove it later
   sendTouch({ x, y }: TouchPayload) {
     ensureGRPCClientConnected(this.grpcClient);
-    const touch = Touch.create({
-      x,
-      y,
-      pressure: 1,
-      identifier: 0,
-      touchMajor: 1,
-      touchMinor: 1,
-      expiration: 0,
-      orientation: 0,
-    });
-    return grpcAsync(this.grpcClient.sendTouch, {
-      touches: [touch],
-      display: 0,
+    return this.sendMultiTouch({
+      type: 'multiTouch',
+      touches: [
+        { id: 0, x, y, type: 'down' },
+        { id: 0, x, y, type: 'up' },
+      ],
     });
   }
 
   dispose() {
     this.emulatorProcess?.kill();
     this.grpcClient?.close();
-    this.grpcClient = null;
   }
 }

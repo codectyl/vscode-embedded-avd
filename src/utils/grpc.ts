@@ -1,67 +1,21 @@
-import {
-  CallOptions,
-  ClientUnaryCall,
-  Metadata,
-  ServiceError,
-} from '@grpc/grpc-js';
+import { Client, ClientUnaryCall, ServiceError } from '@grpc/grpc-js';
 
 type GRPCCallback<ResponseType> = (
   error: ServiceError | null,
   response: ResponseType,
 ) => void;
 
-export type GRPCMethod<RequestType, ResponseType> =
-  | ((
-      request: RequestType,
-      callback: GRPCCallback<ResponseType>,
-    ) => ClientUnaryCall)
-  | ((
-      request: RequestType,
-      metadata: Metadata,
-      callback: GRPCCallback<ResponseType>,
-    ) => ClientUnaryCall)
-  | ((
-      request: RequestType,
-      metadata: Metadata,
-      options: Partial<CallOptions>,
-      callback: GRPCCallback<ResponseType>,
-    ) => ClientUnaryCall);
+type GRPCMethod<RequestType, ResponseType> = (
+  request: RequestType,
+  callback: GRPCCallback<ResponseType>,
+) => ClientUnaryCall;
 
-export function grpcAsync<RequestType, ResponseType>(
+function grpcAsync<RequestType, ResponseType>(
   fn: (
     request: RequestType,
     callback: GRPCCallback<ResponseType>,
   ) => ClientUnaryCall,
   args: RequestType,
-): Promise<ResponseType>;
-
-export function grpcAsync<RequestType, ResponseType>(
-  fn: (
-    request: RequestType,
-    metadata: Metadata,
-    callback: GRPCCallback<ResponseType>,
-  ) => ClientUnaryCall,
-  args: RequestType,
-  metadata: Metadata,
-): Promise<ResponseType>;
-
-export function grpcAsync<RequestType, ResponseType>(
-  fn: (
-    request: RequestType,
-    metadata: Metadata,
-    options: Partial<CallOptions>,
-    callback: GRPCCallback<ResponseType>,
-  ) => ClientUnaryCall,
-  args: RequestType,
-  metadata: Metadata,
-  options: Partial<CallOptions>,
-): Promise<ResponseType>;
-
-export function grpcAsync<RequestType, ResponseType>(
-  fn: any,
-  args: RequestType,
-  metadata?: Metadata,
-  options?: Partial<CallOptions>,
 ): Promise<ResponseType> {
   return new Promise((resolve, reject) => {
     const callback = (error: ServiceError | null, response: ResponseType) => {
@@ -72,12 +26,28 @@ export function grpcAsync<RequestType, ResponseType>(
       }
     };
 
-    if (metadata && options) {
-      fn(args, metadata, options, callback);
-    } else if (metadata) {
-      fn(args, metadata, callback);
-    } else {
-      fn(args, callback);
-    }
+    fn(args, callback);
+  });
+}
+
+export const GRPCAsync = (client: Client) => ({
+  run: <RequestType, ResponseType>(
+    fn: GRPCMethod<RequestType, ResponseType>,
+    args: RequestType,
+  ): Promise<ResponseType> => {
+    fn = fn.bind(client);
+    return grpcAsync(fn, args);
+  },
+});
+
+export function waitForClientReady(
+  client: Client,
+  timeoutMs: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    client.waitForReady(Date.now() + timeoutMs, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
   });
 }

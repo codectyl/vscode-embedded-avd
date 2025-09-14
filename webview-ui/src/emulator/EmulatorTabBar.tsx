@@ -1,45 +1,63 @@
-import { createSignal } from 'solid-js';
+import { WorkerControllerType } from '../controllers/worker';
 
-export default function EmulatorTabBar() {
-  const [tabs, setTabs] = createSignal([
-    { id: 1, name: 'Pixel 2 API 30 Alpha' },
-    { id: 2, name: 'Pixel 4 API 33' },
-  ]);
-  const [activeTabId, setActiveTabId] = createSignal(1);
-
-  const closeTab = (id: number) => {
-    const filtered = tabs().filter((tab) => tab.id !== id);
-    setTabs(filtered);
-    if (id === activeTabId() && filtered.length && filtered[0]) {
-      setActiveTabId(filtered[0].id);
-    }
+export default function EmulatorTabBar({
+  controller,
+}: {
+  controller: WorkerControllerType;
+}) {
+  const sendKeyEvent = (
+    key: 'AppSwitch' | 'GoBack' | 'GoHome' | 'Power',
+    eventType: 'keydown' | 'keyup',
+  ) => {
+    controller.sendKeypressEvent({
+      type: 'key',
+      key,
+      keyCode: 0,
+      eventType,
+    });
   };
 
   return (
-    <div class="flex bg-[#2f2f2f] p-1 font-sans text-sm">
-      {tabs().map((tab) => (
-        <div
-          class={`flex items-center px-3 py-1 mr-2 rounded-t cursor-pointer
-            ${
-              tab.id === activeTabId()
-                ? 'bg-blue-400 text-white font-semibold'
-                : 'bg-[#3a3a3a] text-white'
-            }
-          `}
-          onClick={() => setActiveTabId(tab.id)}
+    <div class="flex items-center bg-[#2f2f2f] h-10 text-white font-sans text-sm">
+      {/* Power (left) */}
+      <div class='flex-1'>
+        <button
+          class="justify-start px-3 hover:bg-[#3a3a3a]"
+          onMouseDown={() => sendKeyEvent('Power', 'keydown')}
+          onMouseUp={() => sendKeyEvent('Power', 'keyup')}
         >
-          {tab.name}
-          <button
-            class="ml-2 text-xs text-gray-300 hover:text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeTab(tab.id);
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      ))}
+          ⏻
+        </button>
+      </div>
+
+      {/* Nav (center) */}
+      <div class="flex flex-1 mx-auto justify-center">
+        <button
+          class="hover:bg-[#3a3a3a] px-3"
+          onMouseDown={() => sendKeyEvent('GoBack', 'keydown')}
+          onMouseUp={() => sendKeyEvent('GoBack', 'keyup')}
+        >
+          ←
+        </button>
+        <button
+          class="hover:bg-[#3a3a3a] px-3"
+          onMouseDown={() => sendKeyEvent('GoHome', 'keydown')}
+          onMouseUp={() => sendKeyEvent('GoHome', 'keyup')}
+        >
+          ○
+        </button>
+        <button
+          class="hover:bg-[#3a3a3a] px-3"
+          onMouseDown={() => sendKeyEvent('AppSwitch', 'keydown')}
+          onMouseUp={() => sendKeyEvent('AppSwitch', 'keyup')}
+        >
+          □
+        </button>
+      </div>
+
+      {/* Right spacer */}
+      <div class="flex-1 w-full">
+      </div>
     </div>
   );
 }

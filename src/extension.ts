@@ -2,23 +2,36 @@ import {
   commands,
   ExtensionContext,
   ExtensionMode,
+  QuickPickItem,
   RelativePattern,
   Uri,
+  window,
   workspace,
 } from 'vscode';
 import WebviewManager from './internal/webviewManager';
-import { EmulatorManager } from './internal/emulatorManager';
+
+let webviewManager: WebviewManager | undefined;
 
 export function activate(context: ExtensionContext) {
+  webviewManager = new WebviewManager(context);
   if (context.extensionMode === ExtensionMode.Development) {
-    watchWebviewChanges(context, WebviewManager.webViewDirUri(context));
+    watchWebviewChanges(context, webviewManager.webViewDirUri);
   }
 
   context.subscriptions.push(
-    commands.registerCommand('androidEmulator.open', async () => {
-      const emulatorManager = new EmulatorManager();
-      const webviewManager = new WebviewManager(context, emulatorManager);
-      webviewManager.createPanel();
+    commands.registerCommand('embeddedAvd.start', async () => {
+      const emulators =
+        await webviewManager!.avdManager.getAvailableEmulators();
+      const items: QuickPickItem[] = emulators.map((emulator) => ({
+        label: emulator,
+      }));
+      const selection = await window.showQuickPick(items, {
+        placeHolder: 'Select an emulator to start',
+        canPickMany: false,
+      });
+      if (!selection) return;
+      await webviewManager!.startEmulatorWebview(selection.label, 8554);
+      window.showInformationMessage(`Started emulator ${selection.label}`);
     }),
   );
 }
@@ -37,4 +50,8 @@ function watchWebviewChanges(_context: ExtensionContext, webViewDir: Uri) {
   watcher.onDidDelete(() => {
     commands.executeCommand('workbench.action.webview.reloadWebviewAction');
   });
+}
+
+export function deactivate() {
+  webviewManager?.dispose();
 }

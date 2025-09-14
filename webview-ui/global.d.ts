@@ -1,15 +1,17 @@
-import { type IncomingPayloadFromWebview } from '../src/interfaces/payload';
-
 import type * as SharedPayloads from '../src/interfaces/payload';
 
 declare global {
-  type IncomingPayloadFromWebview = SharedPayloads.IncomingPayloadFromWebview;
-  type OutgoingPayloadToWebview = SharedPayloads.OutgoingPayloadToWebview;
+  type WebviewToExtensionPayload = SharedPayloads.WebviewToExtensionPayload;
   type MultiTouchPayload = SharedPayloads.MultiTouchPayload;
   type KeyPressPayload = SharedPayloads.KeyPressPayload;
 
+  type ExtensionToWebviewPayload = SharedPayloads.ExtensionToWebviewPayload;
+  type FrameUpdatePayload = SharedPayloads.FrameUpdatePayload;
+
+  type Size = { width: number; height: number };
+
   function acquireVsCodeApi(): {
-    postMessage: (message: IncomingPayloadFromWebview) => void;
+    postMessage: (message: WebviewToExtensionPayload) => void;
     setState: (state: any) => void;
     getState: () => any;
   };

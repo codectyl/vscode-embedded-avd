@@ -4,8 +4,7 @@ export interface MultiTouchPayload {
     id: number;
     x: number;
     y: number;
-    pressure: number;
-    type: string;
+    type: 'down' | 'up';
   }>;
 }
 export interface TouchPayload {
@@ -16,25 +15,40 @@ export interface TouchPayload {
 
 export interface KeyPressPayload {
   type: 'key';
-  key: string;
-  code: string;
+  key: 'AppSwitch' | 'GoBack' | 'GoHome' | 'Power' | string;
   keyCode: number;
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-  meta: boolean;
+  eventType: 'keydown' | 'keyup' | 'keypress';
 }
 
-export type IncomingPayloadFromWebview =
+export interface StartEmulatorPayload {
+  type: 'startEmulator';
+  name: string;
+}
+
+export interface ListEmulatorsPayload {
+  type: 'listEmulators';
+}
+
+export type WebviewToExtensionPayload =
+  | StartEmulatorPayload
+  | ListEmulatorsPayload
   | MultiTouchPayload
   | TouchPayload
   | KeyPressPayload;
 
 export interface FrameUpdatePayload {
   type: 'frame';
-  data: string; // base64 encoded image data
+  data: Uint8Array<ArrayBufferLike>;
   mimetype: string;
   size: { width: number; height: number };
+  actualFrameSize: { width: number; height: number };
 }
 
-export type OutgoingPayloadToWebview = FrameUpdatePayload;
+export interface ListEmulatorsResponsePayload {
+  type: 'listEmulatorsResponse';
+  emulators: string[];
+}
+
+export type ExtensionToWebviewPayload =
+  | FrameUpdatePayload
+  | ListEmulatorsResponsePayload;

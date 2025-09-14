@@ -1,90 +1,169 @@
-import { onMount, type JSX } from 'solid-js';
+import { createEffect, onMount } from 'solid-js';
+import { WorkerControllerType } from '../controllers/worker';
 
-export default function EmulatorCanvas(): JSX.Element {
+export default function EmulatorCanvas({
+  controller,
+}: {
+  controller: WorkerControllerType;
+}) {
+  const { frame } = controller;
+
   let canvasRef: HTMLCanvasElement | undefined;
-  const vscode = acquireVsCodeApi();
+
+  let isDrawing = false;
+  const drawFrame = async (
+    canvasRef: HTMLCanvasElement,
+    frame: FrameUpdatePayload,
+  ) => {
+    const ctx = canvasRef.getContext('2d');
+    if (!ctx) return;
+
+    const bufferArray = frame.data as unknown as {
+      type: 'Buffer';
+      data: number[];
+    }; // data is serialized when sent via postMessage
+    const buff = new Uint8Array(bufferArray.data);
+    const blob = new Blob([buff], {
+      type: frame.mimetype,
+    });
+
+    const bitmap = await createImageBitmap(blob);
+    ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
+
+    // Compute scaling to maintain aspect ratio
+    const scale = Math.min(
+      canvasRef.width / frame.size.width,
+      canvasRef.height / frame.size.height,
+    );
+
+    const xOffset = (canvasRef.width - frame.size.width * scale) / 2;
+    const yOffset = (canvasRef.height - frame.size.height * scale) / 2;
+
+    ctx.drawImage(
+      bitmap,
+      0,
+      0,
+      frame.size.width,
+      frame.size.height,
+      xOffset,
+      yOffset,
+      frame.size.width * scale,
+      frame.size.height * scale,
+    );
+  };
+
+  const getCanvasSize = () => {
+    if (!canvasRef) return { width: 0, height: 0 };
+    return {
+      width: canvasRef.width,
+      height: canvasRef.height,
+    };
+  };
+
+  const getFrameSize = () => {
+    const frameData = frame();
+    if (!frameData) return { width: 0, height: 0 };
+    return frameData.actualFrameSize;
+  };
+
+  let isDown = false;
 
   onMount(() => {
     if (!canvasRef) return;
 
     const canvas = canvasRef;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
-    // Handle incoming frame messages
-    window.addEventListener('message', (event) => {
-      const data = event.data as OutgoingPayloadToWebview;
-      if (data.type === 'frame') {
-        const img = new Image();
-        img.src = `data:${data.mimetype};base64,${data.data}`;
-        img.onload = () => ctx.drawImage(img, 0, 0);
-      }
-    });
-
-    // Multi-touch support
-    let touches: MultiTouchPayload['touches'] = [];
-
+    // Pointer events for multi-touch
     canvas.addEventListener('pointerdown', (e) => {
-      touches.push({
-        id: e.pointerId,
-        x: e.offsetX,
-        y: e.offsetY,
-        pressure: e.pressure || 1,
-        type: 'DOWN',
-      });
+      const rect = canvas.getBoundingClientRect();
+      const touches: MultiTouchPayload['touches'] = [
+        {
+          id: e.pointerId,
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height),
+          type: 'down',
+        },
+      ];
       canvas.setPointerCapture(e.pointerId);
-      vscode.postMessage({ type: 'multiTouch', touches });
+      isDown = true;
+      controller.sendTouchEvent(
+        {
+          type: 'multiTouch',
+          touches,
+        },
+        { canvasSize: getCanvasSize(), frameSize: getFrameSize() },
+      );
     });
 
     canvas.addEventListener('pointermove', (e) => {
-      const idx = touches.findIndex((t) => t.id === e.pointerId);
-      if (idx !== -1 && touches[idx]) {
-        touches[idx] = {
-          ...touches[idx],
-          x: e.offsetX,
-          y: e.offsetY,
-          pressure: e.pressure || 1,
-          type: 'MOVE',
-        };
-        vscode.postMessage({ type: 'multiTouch', touches });
-      }
+      if (!isDown) return;
+      const rect = canvas.getBoundingClientRect();
+      const touches: MultiTouchPayload['touches'] = [
+        {
+          id: e.pointerId,
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height),
+          type: 'down',
+        },
+      ];
+      controller.sendTouchEvent(
+        { type: 'multiTouch', touches },
+        { canvasSize: getCanvasSize(), frameSize: getFrameSize() },
+      );
     });
 
     canvas.addEventListener('pointerup', (e) => {
-      const idx = touches.findIndex((t) => t.id === e.pointerId);
-      if (idx !== -1 && touches[idx]) {
-        touches[idx].type = 'UP';
-        vscode.postMessage({ type: 'multiTouch', touches });
-        touches.splice(idx, 1);
-      }
+      const rect = canvas.getBoundingClientRect();
+
+      const touches: MultiTouchPayload['touches'] = [
+        {
+          id: e.pointerId,
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height),
+          type: 'up',
+        },
+      ];
+      isDown = false;
+      canvas.releasePointerCapture(e.pointerId);
+      controller.sendTouchEvent(
+        { type: 'multiTouch', touches },
+        { canvasSize: getCanvasSize(), frameSize: getFrameSize() },
+      );
     });
 
     // Keyboard support
     canvas.addEventListener('keydown', (e) => {
-      vscode.postMessage({
+      controller.sendKeypressEvent({
         type: 'key',
         key: e.key,
-        code: e.code,
-        ctrl: e.ctrlKey,
-        alt: e.altKey,
         keyCode: e.keyCode,
-        shift: e.shiftKey,
-        meta: e.metaKey,
-      } satisfies KeyPressPayload);
+        eventType: 'keydown',
+      });
     });
 
-    // Focus canvas to receive keyboard events
     canvas.focus();
+  });
+
+  // Re-draw whenever the frame changes
+  createEffect(() => {
+    const frameData = frame();
+    if (!frameData || !canvasRef) return;
+    try {
+      if (isDrawing) return;
+      isDrawing = true;
+      drawFrame(canvasRef, frameData);
+    } finally {
+      isDrawing = false;
+    }
   });
 
   return (
     <canvas
-      id="emulatorCanvas"
       ref={canvasRef}
       tabindex="0"
-      width="640"
-      height="480"
-      style={{ border: '1px solid black' }}
+      class="max-w-full max-h-full w-auto h-auto object-contain"
+      height={frame()?.size.height}
+      width={frame()?.size.width}
     />
   );
 }

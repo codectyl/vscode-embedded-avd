@@ -22,12 +22,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "androidEmulator.configure",
-        "title": "Android Emulator: Configure"
-      },
-      {
-        "command": "androidEmulator.open",
-        "title": "Android Emulator: Open"
+        "command": "embeddedAvd.start",
+        "title": "Embedded AVD: Start"
       }
     ],
     "configuration": {
@@ -36,13 +32,13 @@
       "properties": {
         "embeddedAvd.emulatorPath": {
           "type": "string",
-          "default": "",
+          "default": "emulator",
           "description": "Path to the Android Emulator binary."
         },
-        "embeddedAvd.avdName": {
+        "embeddedAvd.adbPath": {
           "type": "string",
-          "default": "",
-          "description": "Name of the Android Virtual Device (AVD) to launch."
+          "default": "adb",
+          "description": "Path to adb"
         }
       }
     }

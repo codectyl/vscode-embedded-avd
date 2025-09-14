@@ -2,21 +2,8 @@ import typescriptEslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier/flat';
 
-const commonRules = {
-  '@typescript-eslint/naming-convention': [
-    'warn',
-    {
-      selector: 'import',
-      format: ['camelCase', 'PascalCase'],
-    },
-  ],
-  curly: 'warn',
-  eqeqeq: 'warn',
-  'no-throw-literal': 'warn',
-  semi: 'warn',
-};
-
 export default [
+  tseslint.configs.recommendedTypeChecked,
   {
     files: ['src/**/*.ts'],
     plugins: { '@typescript-eslint': typescriptEslint },
@@ -25,17 +12,21 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
     },
-    rules: commonRules,
+    parserOptions: {
+      project: './tsconfig.json',
+    },
   },
   {
     files: ['webview-ui/**/*.ts'],
     plugins: { '@typescript-eslint': typescriptEslint },
+    parserOptions: {
+      project: './webview-ui/tsconfig.json',
+    },
     languageOptions: {
       parser: tsParser,
       ecmaVersion: 2022,
       sourceType: 'module',
     },
-    rules: commonRules,
   },
   eslintConfigPrettier,
 ];
