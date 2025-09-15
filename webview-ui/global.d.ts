@@ -15,4 +15,9 @@ declare global {
     setState: (state: any) => void;
     getState: () => any;
   };
+
+  declare module '*?raw' {
+    const content: string;
+    export default content;
+  }
 }

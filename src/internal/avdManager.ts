@@ -56,7 +56,7 @@ class AvdManager {
       ],
       { stdio: 'ignore' },
     );
-    let grpcClient = await this.connectGrpc(grpcPort);
+    const grpcClient = await this.connectGrpc(grpcPort);
     emulatorProcess.on('exit', (code, signal) => {
       console.log(
         `Emulator ${avdName} process exited with code ${code} and signal ${signal}`,

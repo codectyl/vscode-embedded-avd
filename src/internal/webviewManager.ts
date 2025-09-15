@@ -16,9 +16,8 @@ import {
 } from '../interfaces/payload';
 import AvdManager from './avdManager';
 import { readFile } from 'fs/promises';
-import MediaUtils from '../utils/media';
 import { ClientReadableStream } from '@grpc/grpc-js';
-import { Image } from '../generated/emulator_controller';
+import { DisplayConfigurations, Image } from '../generated/emulator_controller';
 
 class WebviewManager {
   avdManager = new AvdManager();
@@ -36,7 +35,7 @@ class WebviewManager {
   async startEmulatorWebview(avdName: string, port: number) {
     if (this.instances.has(avdName)) {
       const instance = this.instances.get(avdName);
-      instance?.panel.reveal(ViewColumn.Beside);
+      instance?.panel.reveal(ViewColumn.Two);
       return instance;
     }
     const emulatorManager = await this.avdManager.startEmulator(avdName, port);
@@ -95,26 +94,55 @@ class EmulatorWebviewManager {
   async streamFrames() {
     if (this.frameStream) return;
     let isProcessing = false;
-    this.frameStream = this.emulatorManager.streamScreenshot({ width: 360 });
+
+    this.frameStream = this.emulatorManager.streamScreenshot({
+      width: 360,
+      height: 720,
+    });
+
+    let displayConfigs: DisplayConfigurations;
 
     this.frameStream.on('data', async (frame: Image) => {
       if (isProcessing) return;
       if (!frame || !frame.image) return;
+
       try {
         isProcessing = true;
 
+        if (!displayConfigs) {
+          displayConfigs = await this.emulatorManager.getDisplayConfigs();
+        }
+
+        const displayConfig = displayConfigs.displays.find(
+          (e) => e.display === frame.format?.display,
+        );
+        if (!displayConfig) {
+          console.warn(
+            'No display config found for display:',
+            frame.format?.display,
+          );
+          return;
+        }
+
+        /* 
         // Compress the image before sending to webview
         // Maybe we can do this in another web worker for better performance
         const compressedImage = await MediaUtils.compressImage(frame.image);
         if (!compressedImage) return;
+         */
+
         await this.postMessage({
           type: 'frame',
-          data: compressedImage.data,
-          mimetype: compressedImage.mimetype,
-          size: compressedImage.size,
-          actualFrameSize: {
-            width: frame.format?.width ?? compressedImage.size.width,
-            height: frame.format?.height ?? compressedImage.size.height,
+          data: frame.image,
+          // TODO: Try raw bytes for better performance maybe ?
+          mimetype: 'image/png',
+          size: {
+            width: frame.format?.width || 0,
+            height: frame.format?.height || 0,
+          },
+          actualDisplaySize: {
+            width: displayConfig.width,
+            height: displayConfig.height,
           },
         } satisfies FrameUpdatePayload);
       } finally {
@@ -141,7 +169,7 @@ class EmulatorWebviewManager {
     let panel = window.createWebviewPanel(
       'embeddedAvd',
       this.emulatorManager.avdName,
-      ViewColumn.Beside,
+      ViewColumn.Two,
       {
         enableScripts: true,
         localResourceRoots: [webViewDirUri],

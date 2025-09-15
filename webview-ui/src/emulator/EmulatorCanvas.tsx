@@ -1,56 +1,28 @@
-import { createEffect, onMount } from 'solid-js';
+import { createEffect, onCleanup, onMount } from 'solid-js';
 import { WorkerControllerType } from '../controllers/worker';
 
-export default function EmulatorCanvas({
-  controller,
-}: {
+import workerSource from '../web-worker/frameWorker.ts?raw';
+import {
+  OffscreenCanvasInitMessage,
+  type FrameOffscreenRenderMessage,
+} from '../web-worker/frameWorker';
+
+type PropType = {
   controller: WorkerControllerType;
-}) {
+};
+
+export default function EmulatorCanvas({ controller }: PropType) {
   const { frame } = controller;
 
   let canvasRef: HTMLCanvasElement | undefined;
 
-  let isDrawing = false;
-  const drawFrame = async (
-    canvasRef: HTMLCanvasElement,
-    frame: FrameUpdatePayload,
-  ) => {
-    const ctx = canvasRef.getContext('2d');
-    if (!ctx) return;
-
-    const bufferArray = frame.data as unknown as {
-      type: 'Buffer';
-      data: number[];
-    }; // data is serialized when sent via postMessage
-    const buff = new Uint8Array(bufferArray.data);
-    const blob = new Blob([buff], {
-      type: frame.mimetype,
-    });
-
-    const bitmap = await createImageBitmap(blob);
-    ctx.clearRect(0, 0, canvasRef.width, canvasRef.height);
-
-    // Compute scaling to maintain aspect ratio
-    const scale = Math.min(
-      canvasRef.width / frame.size.width,
-      canvasRef.height / frame.size.height,
-    );
-
-    const xOffset = (canvasRef.width - frame.size.width * scale) / 2;
-    const yOffset = (canvasRef.height - frame.size.height * scale) / 2;
-
-    ctx.drawImage(
-      bitmap,
-      0,
-      0,
-      frame.size.width,
-      frame.size.height,
-      xOffset,
-      yOffset,
-      frame.size.width * scale,
-      frame.size.height * scale,
-    );
-  };
+  const workerBlob = new Blob([workerSource], {
+    type: 'application/javascript',
+  });
+  const worker = new Worker(URL.createObjectURL(workerBlob), {
+    type: 'module',
+    name: 'FrameWorker',
+  });
 
   const getCanvasSize = () => {
     if (!canvasRef) return { width: 0, height: 0 };
@@ -63,7 +35,7 @@ export default function EmulatorCanvas({
   const getFrameSize = () => {
     const frameData = frame();
     if (!frameData) return { width: 0, height: 0 };
-    return frameData.actualFrameSize;
+    return frameData.actualDisplaySize;
   };
 
   let isDown = false;
@@ -141,20 +113,36 @@ export default function EmulatorCanvas({
       });
     });
 
-    canvas.focus();
+    const offscreenCanvas = canvas.transferControlToOffscreen();
+    worker.postMessage(
+      {
+        type: 'offscreenCanvasInit',
+        canvas: offscreenCanvas,
+      } satisfies OffscreenCanvasInitMessage,
+      [offscreenCanvas],
+    );
   });
 
   // Re-draw whenever the frame changes
   createEffect(() => {
     const frameData = frame();
     if (!frameData || !canvasRef) return;
-    try {
-      if (isDrawing) return;
-      isDrawing = true;
-      drawFrame(canvasRef, frameData);
-    } finally {
-      isDrawing = false;
-    }
+    drawFrameOffscreen(canvasRef, frameData);
+  });
+
+  const drawFrameOffscreen = async (
+    canvasRef: HTMLCanvasElement,
+    frame: FrameUpdatePayload,
+  ) => {
+    worker.postMessage({
+      type: 'offscreenRender',
+      frame: frame,
+      canvasSize: { width: canvasRef.width, height: canvasRef.height },
+    } satisfies FrameOffscreenRenderMessage);
+  };
+
+  onCleanup(() => {
+    worker.terminate();
   });
 
   return (

@@ -41,7 +41,7 @@ export interface FrameUpdatePayload {
   data: Uint8Array<ArrayBufferLike>;
   mimetype: string;
   size: { width: number; height: number };
-  actualFrameSize: { width: number; height: number };
+  actualDisplaySize: { width: number; height: number };
 }
 
 export interface ListEmulatorsResponsePayload {
