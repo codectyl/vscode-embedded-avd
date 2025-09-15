@@ -71,7 +71,7 @@ const newConfig: Configuration = {
             babelrc: false,
             configFile: false,
             presets: ['@babel/preset-env', 'solid', '@babel/preset-typescript'],
-            plugins: ['solid-refresh/babel'],
+            plugins: ['solid-refresh/babel', 'solid-styled-jsx/babel'],
           },
         },
       },
