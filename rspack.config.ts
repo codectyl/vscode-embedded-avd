@@ -57,18 +57,6 @@ const newConfig: Configuration = {
   devtool: 'source-map',
   module: {
     rules: [
-      // {
-      //   test: /web-worker\/.(ts|js)$/,
-      //   use: [
-      //     {
-      //       loader: 'worker-loader',
-      //       options: {
-      //         filename: '[name].[contenthash].worker.js',
-      //         inline: 'no-fallback',
-      //       },
-      //     },
-      //   ],
-      // },
       {
         test: /\.ts$/,
         resourceQuery: /raw/, // only apply when `?raw` is used
