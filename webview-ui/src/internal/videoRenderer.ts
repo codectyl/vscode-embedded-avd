@@ -15,7 +15,11 @@ class VideoRenderer {
     // --DECODER SETUP--
     this.decoder = new VideoDecoder({
       output: (frame: VideoFrame) => {
-        const ctx = this.offscreenCanvas?.getContext('2d');
+        const ctx = this.offscreenCanvas?.getContext('2d', {
+          desynchronized: true,
+          willReadFrequently: true,
+          alpha: false,
+        });
         if (!this.offscreenCanvas || !ctx) {
           frame.close();
           return;
@@ -67,7 +71,7 @@ class VideoRenderer {
   }
 
   async encodeAndRenderImageBuffer(
-    buffer: { type: 'Buffer'; data: number[] },
+    bytes: Uint8Array<ArrayBuffer>,
     mimeType: string = 'image/png',
     canvasSize: { width: number; height: number },
   ) {
@@ -81,7 +85,6 @@ class VideoRenderer {
       await this.configure(canvasSize.width, canvasSize.height);
     }
 
-    const bytes = Uint8Array.from(buffer.data);
     const blob = new Blob([bytes], { type: mimeType });
 
     let bitmap: ImageBitmap | null = null;

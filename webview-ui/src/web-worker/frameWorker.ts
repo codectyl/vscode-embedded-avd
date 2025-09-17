@@ -33,7 +33,8 @@ self.onmessage = async (
     const { frame, canvasSize } = event.data;
 
     await renderer?.encodeAndRenderImageBuffer(
-      frame.data as unknown as { type: 'Buffer'; data: number[] },
+      // Should not matter with the type assertion here
+      frame.data as unknown as Uint8Array<ArrayBuffer>,
       frame.mimetype,
       canvasSize,
     );

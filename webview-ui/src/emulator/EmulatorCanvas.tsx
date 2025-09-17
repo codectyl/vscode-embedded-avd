@@ -7,6 +7,7 @@ import {
 } from '../web-worker/frameWorker';
 
 import FrameWorker from 'worker-rspack-loader?inline=fallback!../web-worker/frameWorker';
+import { arrayBuffer } from 'stream/consumers';
 
 type PropType = {
   controller: WorkerControllerType;
@@ -129,11 +130,23 @@ export default function EmulatorCanvas({ controller }: PropType) {
     canvasRef: HTMLCanvasElement,
     frame: FrameUpdatePayload,
   ) => {
-    worker.postMessage({
-      type: 'offscreenRender',
-      frame: frame,
-      canvasSize: { width: canvasRef.width, height: canvasRef.height },
-    } satisfies FrameOffscreenRenderMessage);
+    requestAnimationFrame(() => {
+      // VSCode serializes Uint8Array as { type: 'Buffer'; data: number[] }
+      // So we need to convert it back to Uint8Array for the worker for zero-copy transfer
+      // There should be a better way to do this
+      const arrayBuffer = Uint8Array.from(
+        (frame.data as unknown as { data: number[]; type: 'Buffer' }).data,
+      );
+      frame.data = arrayBuffer;
+      worker.postMessage(
+        {
+          type: 'offscreenRender',
+          frame: frame,
+          canvasSize: { width: canvasRef.width, height: canvasRef.height },
+        } satisfies FrameOffscreenRenderMessage,
+        [frame.data.buffer],
+      );
+    });
   };
 
   onCleanup(() => {
