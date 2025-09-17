@@ -89,6 +89,7 @@
     "tailwindcss": "^4.1.13",
     "ts-loader": "^9.5.4",
     "ts-proto": "^2.7.7",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "worker-rspack-loader": "^3.1.2"
   }
 }

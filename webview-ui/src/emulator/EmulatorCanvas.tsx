@@ -1,11 +1,12 @@
 import { createEffect, onCleanup, onMount } from 'solid-js';
 import { WorkerControllerType } from '../controllers/worker';
 
-import workerSource from '../web-worker/frameWorker.ts?raw';
 import {
-  OffscreenCanvasInitMessage,
+  type OffscreenCanvasInitMessage,
   type FrameOffscreenRenderMessage,
 } from '../web-worker/frameWorker';
+
+import FrameWorker from 'worker-rspack-loader?inline=fallback!../web-worker/frameWorker';
 
 type PropType = {
   controller: WorkerControllerType;
@@ -16,13 +17,7 @@ export default function EmulatorCanvas({ controller }: PropType) {
 
   let canvasRef: HTMLCanvasElement | undefined;
 
-  const workerBlob = new Blob([workerSource], {
-    type: 'application/javascript',
-  });
-  const worker = new Worker(URL.createObjectURL(workerBlob), {
-    type: 'module',
-    name: 'FrameWorker',
-  });
+  const worker = new FrameWorker();
 
   const getCanvasSize = () => {
     if (!canvasRef) return { width: 0, height: 0 };

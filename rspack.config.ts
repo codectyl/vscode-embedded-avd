@@ -59,8 +59,13 @@ const newConfig: Configuration = {
     rules: [
       {
         test: /\.ts$/,
-        resourceQuery: /raw/, // only apply when `?raw` is used
-        type: 'asset/source', // import as raw string
+        resourceQuery: /raw/,
+        type: 'asset/source',
+      },
+      {
+        test: /\.worker\.ts$/,
+        include: path.resolve(__dirname, 'src/web-worker'),
+        use: 'worker-rspack-loader',
       },
       {
         test: /\.(ts)x?$/,
