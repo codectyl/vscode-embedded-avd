@@ -1,110 +1,94 @@
-class VideoRenderer {
-  encoder!: VideoEncoder;
-  decoder!: VideoDecoder;
+import {
+  Input,
+  ReadableStreamSource,
+  ALL_FORMATS,
+  VideoSampleSink,
+} from 'mediabunny';
 
+class VideoRenderer {
   offscreenCanvas: OffscreenCanvas;
+
+  stream: ReadableStream<Uint8Array>;
+  controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+  input: Input<ReadableStreamSource>;
+
+  isReady = false;
 
   constructor({ offscreenCanvas }: { offscreenCanvas: OffscreenCanvas }) {
     this.offscreenCanvas = offscreenCanvas;
-
-    const canvasSize = {
-      width: offscreenCanvas.width,
-      height: offscreenCanvas.height,
-    };
-
-    // --DECODER SETUP--
-    this.decoder = new VideoDecoder({
-      output: (frame: VideoFrame) => {
-        const ctx = this.offscreenCanvas?.getContext('2d', {
-          desynchronized: true,
-          willReadFrequently: true,
-          alpha: false,
-        });
-        if (!this.offscreenCanvas || !ctx) {
-          frame.close();
-          return;
-        }
-        ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
-        frame.close();
-      },
-      error: (e) => console.error('Decoder error:', e),
+    this.stream = this.setupStream();
+    this.input = new Input({
+      source: new ReadableStreamSource(this.stream),
+      formats: ALL_FORMATS,
     });
 
-    // --ENCODER SETUP--
-    this.encoder = new VideoEncoder({
-      output: (chunk) => {
-        this.decoder.decode(chunk);
-      },
-      error: (e) => console.error('Encoder error:', e),
-    });
-
-    this.configure(canvasSize.width, canvasSize.height);
-    console.log('VideoRenderer initialized');
+    this.listenToStream();
   }
-  keyFrame = true;
-  isDrawing = false;
 
-  async configure(width: number, height: number) {
-    if (
-      width === this.offscreenCanvas.width &&
-      height === this.offscreenCanvas.height
-    )
+  async putFrame(frameInfo: FrameUpdatePayload, canvasSize: Size) {
+    if (!this.controller) {
+      console.error('Stream Controller not set up yet');
       return;
-
-    this.offscreenCanvas.width = width;
-    this.offscreenCanvas.height = height;
-    this.decoder.configure({
-      codec: 'vp8',
-      codedWidth: width,
-      codedHeight: height,
-    });
-    this.encoder.configure({
-      codec: 'vp8',
-      width,
-      height,
-      bitrate: 500_000,
-      framerate: 30,
-    });
-    await this.encoder.flush();
-    await this.decoder.flush();
-    this.keyFrame = true;
-  }
-
-  async encodeAndRenderImageBuffer(
-    bytes: Uint8Array<ArrayBuffer>,
-    mimeType: string = 'image/png',
-    canvasSize: { width: number; height: number },
-  ) {
-    if (this.isDrawing) return;
-    this.isDrawing = true;
+    }
 
     if (
       canvasSize.height !== this.offscreenCanvas.height ||
       canvasSize.width !== this.offscreenCanvas.width
     ) {
-      await this.configure(canvasSize.width, canvasSize.height);
+      this.offscreenCanvas.width = canvasSize.width;
+      this.offscreenCanvas.height = canvasSize.height;
     }
+    this.controller.enqueue(frameInfo.data);
+  }
 
-    const blob = new Blob([bytes], { type: mimeType });
+  private setupStream() {
+    const stream = new ReadableStream({
+      start: (ctrl) => {
+        this.controller = ctrl;
+      },
+    });
 
-    let bitmap: ImageBitmap | null = null;
-    let frame: VideoFrame | null = null;
+    return stream;
+  }
+
+  async listenToStream() {
+    const input = this.input;
 
     try {
-      bitmap = await createImageBitmap(blob);
-      frame = new VideoFrame(bitmap, { timestamp: Date.now() });
-      this.encoder.encode(frame, { keyFrame: this.keyFrame });
-      this.keyFrame = false;
-    } finally {
-      frame?.close();
-      bitmap?.close();
-      this.isDrawing = false;
+      const videoTrack = await input.getPrimaryVideoTrack();
+      if (!videoTrack) throw new Error('No video track found');
+      const sink = new VideoSampleSink(videoTrack);
+
+      const ctx = this.offscreenCanvas.getContext('2d');
+      if (!ctx) throw new Error('Failed to get 2D context');
+
+      // const start = performance.now();
+      for await (const sample of sink.samples()) {
+        // const elapsed = performance.now() - start;
+        // const delay = sample.timestamp / 1000 - elapsed;
+        // if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+        sample.draw(
+          ctx,
+          0,
+          0,
+          this.offscreenCanvas.width,
+          this.offscreenCanvas.height,
+        );
+        sample.close();
+      }
+    } catch (e) {
+      console.error('Error in listening to stream', e);
+      await new Promise((r) => setTimeout(r, 5000));
+      this.listenToStream(); // Retry listening to stream
+      return;
     }
   }
 
-  close() {
-    this.encoder.close();
-    this.decoder.close();
+  dispose() {
+    this.input.dispose();
+    this.controller?.close();
+    this.stream.cancel();
   }
 }
 

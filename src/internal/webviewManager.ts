@@ -17,7 +17,13 @@ import {
 import AvdManager from './avdManager';
 import { readFile } from 'fs/promises';
 import { ClientReadableStream } from '@grpc/grpc-js';
-import { DisplayConfigurations, Image } from '../generated/emulator_controller';
+import {
+  DisplayConfigurations,
+  Image,
+  ImageFormat_ImgFormat,
+} from '../generated/emulator_controller';
+import FFMpegRawEncoder from './encoder/ffmpeg-encoder';
+import { Size } from '../utils/models';
 
 class WebviewManager {
   avdManager = new AvdManager();
@@ -90,6 +96,40 @@ class EmulatorWebviewManager {
   }
 
   frameStream: ClientReadableStream<Image> | undefined;
+  ffmpegEncoder: FFMpegRawEncoder | undefined;
+
+  private async setupFFMpegEncoder(size: Size) {
+    if (!(await FFMpegRawEncoder.checkFfmpegInstallation())) {
+      window.showErrorMessage(
+        'FFMPEG is not installed. Please install FFMPEG to use video streaming.',
+      );
+      throw new Error('FFMPEG is not installed');
+    }
+
+    const ffmpegProcess = new FFMpegRawEncoder({
+      resolution: size,
+      fps: 30,
+    });
+
+    ffmpegProcess.setupDataListener(
+      async ({ chunk, displayConfig, frameSize, mimeType }) => {
+        await this.postMessage({
+          type: 'frame',
+          data: chunk,
+          mimetype: mimeType,
+          size: {
+            width: frameSize.width,
+            height: frameSize.height,
+          },
+          actualDisplaySize: {
+            width: displayConfig.width,
+            height: displayConfig.height,
+          },
+        } satisfies FrameUpdatePayload);
+      },
+    );
+    return ffmpegProcess;
+  }
 
   async streamFrames() {
     if (this.frameStream) return;
@@ -98,6 +138,7 @@ class EmulatorWebviewManager {
     this.frameStream = this.emulatorManager.streamScreenshot({
       width: 360,
       height: 720,
+      format: ImageFormat_ImgFormat.RGB888,
     });
 
     let displayConfigs: DisplayConfigurations;
@@ -124,27 +165,14 @@ class EmulatorWebviewManager {
           return;
         }
 
-        /* 
-        // Compress the image before sending to webview
-        // Maybe we can do this in another web worker for better performance
-        const compressedImage = await MediaUtils.compressImage(frame.image);
-        if (!compressedImage) return;
-         */
+        if (!this.ffmpegEncoder) {
+          this.ffmpegEncoder = await this.setupFFMpegEncoder({
+            width: frame.format!.width,
+            height: frame.format!.height,
+          });
+        }
 
-        await this.postMessage({
-          type: 'frame',
-          data: frame.image,
-          // TODO: Try raw bytes for better performance maybe ?
-          mimetype: 'image/png',
-          size: {
-            width: frame.format?.width || 0,
-            height: frame.format?.height || 0,
-          },
-          actualDisplaySize: {
-            width: displayConfig.width,
-            height: displayConfig.height,
-          },
-        } satisfies FrameUpdatePayload);
+        this.ffmpegEncoder?.addFrame(frame, displayConfig);
       } finally {
         isProcessing = false;
       }
@@ -210,6 +238,7 @@ class EmulatorWebviewManager {
       this.frameStream?.cancel();
       this.frameStream?.destroy();
       this.webviewManager.instances.delete(this.emulatorManager.avdName);
+      this.ffmpegEncoder?.close();
     });
 
     this.streamFrames();

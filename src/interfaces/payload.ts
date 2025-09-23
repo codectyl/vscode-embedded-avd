@@ -40,6 +40,7 @@ export interface FrameUpdatePayload {
   type: 'frame';
   data: Uint8Array<ArrayBufferLike>;
   mimetype: string;
+  codec?: string;
   size: { width: number; height: number };
   actualDisplaySize: { width: number; height: number };
 }

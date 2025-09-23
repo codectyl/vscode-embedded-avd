@@ -113,15 +113,17 @@ export class EmulatorManager {
   async getScreenshot({
     width,
     height,
+    format,
   }: {
     width?: number;
     height?: number;
+    format?: ImageFormat_ImgFormat;
   } = {}): Promise<Image> {
     ensureGRPCClientConnected(this.grpcClient);
     return await GRPCAsync(this.grpcClient).run(
       this.grpcClient.getScreenshot,
       ImageFormat.create({
-        format: ImageFormat_ImgFormat.PNG,
+        format: format ?? ImageFormat_ImgFormat.PNG,
         width: width ?? 0,
         height: height ?? 0,
       }),
@@ -131,14 +133,16 @@ export class EmulatorManager {
   streamScreenshot({
     width,
     height,
+    format,
   }: {
     width?: number;
     height?: number;
+    format?: ImageFormat_ImgFormat;
   } = {}): grpc.ClientReadableStream<Image> {
     ensureGRPCClientConnected(this.grpcClient);
     return this.grpcClient.streamScreenshot(
       ImageFormat.create({
-        format: ImageFormat_ImgFormat.PNG,
+        format: format ?? ImageFormat_ImgFormat.PNG,
         width: width ?? 0,
         height: height ?? 0,
       }),

@@ -16,8 +16,12 @@ export default function EmulatorCanvas({ controller }: PropType) {
   const { frame } = controller;
 
   let canvasRef: HTMLCanvasElement | undefined;
+  let videoRef: HTMLVideoElement | undefined;
 
   const worker = new FrameWorker();
+
+  const mediaSource = new MediaSource();
+  let sourceBuffer: SourceBuffer | undefined;
 
   const getCanvasSize = () => {
     if (!canvasRef) return { width: 0, height: 0 };
@@ -33,7 +37,50 @@ export default function EmulatorCanvas({ controller }: PropType) {
     return frameData.actualDisplaySize;
   };
 
+  let queue: BufferSource[] = [];
+  function tryAppendNextChunk() {
+    if (!sourceBuffer || sourceBuffer.updating || queue.length === 0) return;
+
+    console.log('Appending next chunk, queue length:', queue.length);
+    const chunk = queue.shift();
+    if (!chunk) return;
+    try {
+      console.log(mediaSource.sourceBuffers);
+      sourceBuffer.appendBuffer(chunk);
+    } catch (e) {
+      console.error('appendBuffer failed:', e);
+    }
+  }
+
   let isDown = false;
+
+  onMount(() => {
+    if (!videoRef) return;
+    videoRef.src = URL.createObjectURL(mediaSource);
+    mediaSource.addEventListener('sourceopen', () => {
+      sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp9"');
+      console.log({ added: sourceBuffer });
+      sourceBuffer?.addEventListener('update', () => {
+        console.log('updateend');
+      });
+
+      console.log(mediaSource.sourceBuffers.length);
+
+      sourceBuffer?.addEventListener('updateend', tryAppendNextChunk);
+      sourceBuffer?.addEventListener('error', (e) => console.error(e));
+      sourceBuffer?.addEventListener('abort', (e) => console.error(e));
+    });
+
+    mediaSource.addEventListener('error', (e) => {
+      console.error('MediaSource error:', e);
+    });
+
+    mediaSource.addEventListener('sourceclose', () => {
+      console.log(mediaSource.sourceBuffers.length);
+
+      console.log('MediaSource closed — cannot append anymore');
+    });
+  });
 
   onMount(() => {
     if (!canvasRef) return;
@@ -120,18 +167,23 @@ export default function EmulatorCanvas({ controller }: PropType) {
 
   // Re-draw whenever the frame changes
   createEffect(() => {
-    const frameData = frame();
-    if (!frameData || !canvasRef) return;
-    drawFrameOffscreen(canvasRef, frameData);
+    const frameInfo = frame();
+    if (!frameInfo || !canvasRef) return;
+
+    // const arrayBuffer = new Uint8Array(
+    //   (frameInfo.data as unknown as { data: number[]; type: 'Buffer' }).data,
+    // );
+    // frameInfo.data = arrayBuffer;
+
+    // queue.push(arrayBuffer);
+    // tryAppendNextChunk();
+    drawFrameOffscreen(canvasRef, frameInfo);
   });
 
-  let isDrawing = false;
   const drawFrameOffscreen = async (
     canvasRef: HTMLCanvasElement,
     frame: FrameUpdatePayload,
   ) => {
-    if (isDrawing) return;
-    isDrawing = true;
     requestAnimationFrame(() => {
       // VSCode serializes Uint8Array as { type: 'Buffer'; data: number[] }
       // So we need to convert it back to Uint8Array for the worker for zero-copy transfer
@@ -148,7 +200,6 @@ export default function EmulatorCanvas({ controller }: PropType) {
         } satisfies FrameOffscreenRenderMessage,
         [frame.data.buffer],
       );
-      isDrawing = false;
     });
   };
 
@@ -158,6 +209,7 @@ export default function EmulatorCanvas({ controller }: PropType) {
 
   return (
     <>
+      <video ref={videoRef}></video>
       <canvas
         ref={canvasRef}
         tabindex="0"

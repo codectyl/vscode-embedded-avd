@@ -32,22 +32,17 @@ self.onmessage = async (
   if (event.data.type === 'offscreenRender') {
     const { frame, canvasSize } = event.data;
 
-    await renderer?.encodeAndRenderImageBuffer(
-      // Should not matter with the type assertion here
-      frame.data as unknown as Uint8Array<ArrayBuffer>,
-      frame.mimetype,
-      canvasSize,
-    );
+    await renderer?.putFrame(frame, canvasSize);
   }
 };
 
 self.onabort = () => {
-  renderer?.close();
+  renderer?.dispose();
 };
 self.onclose = () => {
-  renderer?.close();
+  renderer?.dispose();
 };
 self.oncancel = (_: Event) => {
-  renderer?.close();
+  renderer?.dispose();
   console.log('Worker cancelled');
 };
