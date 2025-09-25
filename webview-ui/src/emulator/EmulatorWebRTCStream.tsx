@@ -71,8 +71,8 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
         playsinline
         muted
         class="max-w-full max-h-full w-auto h-auto object-contain"
-        // height={getFrameSize().height}
-        // width={getFrameSize().width}
+        height={frameInfo?.frameSize.height}
+        width={frameInfo?.frameSize.width}
       ></video>
     </>
   );
