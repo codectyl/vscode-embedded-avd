@@ -1,10 +1,11 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import vscode from '../internal/vscode';
 import {
-  WebRTCAnswerMessage,
-  WebRTCOfferMessage,
+  type WebRTCAnswerMessage,
+  type WebRTCOfferMessage,
   type WebRTCCandidateMessage,
 } from '../../../src/interfaces/payload';
+import { Completer } from '../internal/helpers/completer';
 
 export type Manager = ReturnType<typeof useManager>;
 
@@ -12,6 +13,8 @@ export const useManager = () => {
   const [emulators, setEmulators] = createSignal<string[]>([]);
 
   const peerConnection = new RTCPeerConnection();
+
+  const webRTCReady: Completer<boolean> = new Completer();
 
   peerConnection.onicecandidate = (event) => {
     if (!event.candidate) return;
@@ -22,6 +25,7 @@ export const useManager = () => {
     });
   };
 
+  // Not being used as it did not work when client established the connection first
   const sendWebRTCOffer = async () => {
     const pc = peerConnection;
     const offer = await pc.createOffer();
@@ -41,7 +45,6 @@ export const useManager = () => {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
-    // Send the answer back to the server
     vscode.postMessage({
       type: 'webrtcAnswer',
       sdp: answer as unknown as Record<string, unknown>,
@@ -57,7 +60,10 @@ export const useManager = () => {
         setEmulators(data.emulators);
         break;
       case 'readyForWebRTC':
-        await sendWebRTCOffer();
+        webRTCReady.complete(true);
+        break;
+      case 'requestForWebRTC':
+        sendWebRTCOffer();
         break;
       case 'webrtcOffer':
         await acceptOffer(data);
@@ -102,21 +108,8 @@ export const useManager = () => {
     return Promise.resolve(true);
   };
 
-  const sendKeypressEvent = (event: KeyPressPayload) => {
-    vscode.postMessage(event);
-  };
-
-  const sendTouchEvent = (
-    event: MultiTouchPayload,
-    { canvasSize, frameSize }: { canvasSize: Size; frameSize: Size },
-  ) => {
-    const mappedTouches = event.touches.map((t) => ({
-      ...t,
-      x: Math.round((t.x / canvasSize.width) * frameSize.width),
-      y: Math.round((t.y / canvasSize.height) * frameSize.height),
-    }));
-    event.touches = mappedTouches;
-    vscode.postMessage(event);
+  const sendEvent = (event: KeyPressPayload | MultiTouchPayload) => {
+    return vscode.postMessage(event);
   };
 
   onMount(() => window.addEventListener('message', handleMessage));
@@ -130,8 +123,8 @@ export const useManager = () => {
     emulators,
     startEmulator,
     refreshAvailableEmulators,
-    sendKeypressEvent,
-    sendTouchEvent,
     peerConnection,
+    webRTCReady,
+    sendEvent,
   };
 };

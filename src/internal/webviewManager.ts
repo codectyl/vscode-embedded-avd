@@ -139,10 +139,14 @@ class EmulatorWebviewManager {
         if (!this.webrtcHelper) {
           this.webrtcHelper = await this.setupWebRTC();
         }
-        this.webrtcHelper?.putFrame(frame.image, {
-          width: frame.format!.width,
-          height: frame.format!.height,
-        });
+        this.webrtcHelper?.putFrame(
+          frame.image,
+          {
+            width: frame.format!.width,
+            height: frame.format!.height,
+          },
+          displayConfig,
+        );
       } finally {
         isProcessing = false;
       }
@@ -203,6 +207,9 @@ class EmulatorWebviewManager {
           case 'webrtcIceCandidate':
           case 'webrtcAnswer':
           case 'requestWebRTCConnection':
+            if (!this.webrtcHelper) {
+              throw new Error('WebRTC not initialized yet');
+            }
             return this.webrtcHelper!.handleWebRTCMessage(payload);
         }
       },

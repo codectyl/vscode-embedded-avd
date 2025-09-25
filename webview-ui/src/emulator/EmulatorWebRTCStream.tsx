@@ -14,11 +14,23 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
 
   let canvasListener: CanvasListener | undefined;
 
-  onMount(() => {
+  let frameInfo: FrameInfoDataChannelPayload | undefined;
+
+  let frameInfoDataChannel: RTCDataChannel | undefined;
+
+  onMount(async () => {
     if (!videoRef) {
       console.error('Video element not found');
       return;
     }
+    // Comment this code if you are hot reloading
+    const isReady = await controller.webRTCReady.promise;
+    if (!isReady) {
+      console.error('WebRTC not initialized from the extension side');
+      return;
+    }
+    //
+
     controller.peerConnection.ontrack = (event) => {
       if (event.track.kind !== 'video') return;
       if (event.track && !videoRef.srcObject) {
@@ -28,12 +40,25 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
         canvasListener.setupListeners();
       }
     };
+
+    controller.peerConnection.ondatachannel = (event) => {
+      const channel = event.channel;
+      if (channel.label !== 'frameInfo') return;
+      frameInfoDataChannel = channel;
+      frameInfoDataChannel.onmessage = (msgEvent) => {
+        const data = JSON.parse(msgEvent.data) as FrameInfoDataChannelPayload;
+        canvasListener?.updateFrameInfo(data);
+        frameInfo = data;
+      };
+    };
+
     // Ready to establish WebRTC Connection
     vscode.postMessage({ type: 'requestWebRTCConnection' });
   });
 
   onCleanup(() => {
     controller.peerConnection.ontrack = null;
+    controller.peerConnection.ondatachannel = null;
     canvasListener?.stopListeners();
   });
 
@@ -42,6 +67,7 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
       <video
         ref={videoRef}
         autoplay
+        tabindex="0"
         playsinline
         muted
         class="max-w-full max-h-full w-auto h-auto object-contain"

@@ -7,6 +7,8 @@ declare global {
 
   type ExtensionToWebviewPayload = SharedPayloads.ExtensionToWebviewPayload;
 
+  type FrameInfoDataChannelPayload = SharedPayloads.FrameInfoDataChannelPayload;
+
   type Size = { width: number; height: number };
 
   function acquireVsCodeApi(): {

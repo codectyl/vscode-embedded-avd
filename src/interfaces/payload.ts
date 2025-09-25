@@ -1,3 +1,5 @@
+import { DisplayConfiguration } from '../generated/emulator_controller';
+
 export interface MultiTouchPayload {
   type: 'multiTouch';
   touches: Array<{
@@ -50,7 +52,8 @@ export type ExtensionToWebviewPayload =
   | WebRTCAnswerMessage
   | WebRTCOfferMessage
   | WebRTCCandidateMessage
-  | { type: 'readyForWebRTC' };
+  | { type: 'readyForWebRTC' }
+  | { type: 'requestForWebRTC' };
 
 export type WebRTCMessage =
   | WebRTCAnswerMessage
@@ -71,4 +74,9 @@ export interface WebRTCAnswerMessage {
 export interface WebRTCCandidateMessage {
   type: 'webrtcIceCandidate';
   candidate: Record<string, unknown>;
+}
+
+export interface FrameInfoDataChannelPayload {
+  frameSize: { width: number; height: number };
+  displayConfig: DisplayConfiguration;
 }

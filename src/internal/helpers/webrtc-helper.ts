@@ -3,14 +3,17 @@ import {
   MediaStreamTrack,
   nonstandard,
   RTCPeerConnectionIceEvent,
+  RTCDataChannel,
 } from '@roamhq/wrtc';
 
 import {
   ExtensionToWebviewPayload,
+  FrameInfoDataChannelPayload,
   WebRTCMessage,
 } from '../../interfaces/payload';
 import { Size } from '../../utils/models';
 import { RTCVideoFrame } from '@roamhq/wrtc/types/nonstandard';
+import { DisplayConfiguration } from '../../generated/emulator_controller';
 
 class WebRTCHelper {
   peerConnection: RTCPeerConnection;
@@ -18,9 +21,9 @@ class WebRTCHelper {
   videoSource: nonstandard.RTCVideoSource;
   isStreaming = false;
 
-  constructor(public postMessage: (msg: ExtensionToWebviewPayload) => void) {
-    console.log('Client connected. Starting WebRTC session...');
+  frameInfoChannel: RTCDataChannel;
 
+  constructor(public postMessage: (msg: ExtensionToWebviewPayload) => void) {
     this.peerConnection = new RTCPeerConnection();
     this.isStreaming = true;
 
@@ -35,6 +38,10 @@ class WebRTCHelper {
     this.videoSource = new nonstandard.RTCVideoSource();
     this.videoTrack = this.videoSource.createTrack();
     this.peerConnection.addTrack(this.videoTrack);
+    this.frameInfoChannel = this.peerConnection.createDataChannel('frameInfo');
+
+    this.postMessage({ type: 'readyForWebRTC' });
+    console.log('Server ready for WebRTC connections');
   }
 
   async sendOffer() {
@@ -67,7 +74,11 @@ class WebRTCHelper {
     };
   }
 
-  async putFrame(frameData: Uint8Array, size: Size) {
+  async putFrame(
+    frameData: Uint8Array,
+    size: Size,
+    displayConfig: DisplayConfiguration,
+  ) {
     if (!this.isStreaming) {
       console.warn('Not streaming. Ignoring frame.');
       return;
@@ -76,6 +87,16 @@ class WebRTCHelper {
     this.videoSource.onFrame(
       this.convertFrameToI420(new Uint8Array(frameData), size),
     );
+    // Send frame size and display config through data channel
+    // Should it be throttled ?
+    if (this.frameInfoChannel.readyState === 'open') {
+      this.frameInfoChannel.send(
+        JSON.stringify({
+          frameSize: size,
+          displayConfig,
+        } satisfies FrameInfoDataChannelPayload),
+      );
+    }
   }
 
   async handleWebRTCMessage(message: WebRTCMessage) {
