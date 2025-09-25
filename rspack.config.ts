@@ -14,8 +14,8 @@ const extensionConfig: Configuration = {
     libraryTarget: 'commonjs2',
   },
   externals: {
-    sharp: 'commonjs sharp',
     vscode: 'commonjs vscode',
+    '@roamhq/wrtc': 'commonjs @roamhq/wrtc',
     // modules added here also need to be added in the .vscodeignore file
   },
   resolve: {

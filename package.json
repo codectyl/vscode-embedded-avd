@@ -1,11 +1,12 @@
 {
   "name": "vscode-embedded-avd",
   "displayName": "Embedded AVD",
-  "description": "",
-  "version": "0.0.1",
+  "description": "Extension to embed Android Emulator in VSCode instead of running in a separate window.",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.103.0"
   },
+  "publisher": "codectyl",
   "categories": [
     "Other"
   ],
@@ -34,16 +35,6 @@
           "type": "string",
           "default": "emulator",
           "description": "Path to the Android Emulator binary."
-        },
-        "embeddedAvd.adbPath": {
-          "type": "string",
-          "default": "adb",
-          "description": "Path to adb"
-        },
-        "embeddedAvd.ffmpegPath": {
-          "type": "string",
-          "default": "ffmpeg",
-          "description": "Path to FFMpeg"
         }
       }
     }
@@ -51,9 +42,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.7.0",
     "@grpc/grpc-js": "^1.9.7",
-    "@roamhq/wrtc": "^0.9.1",
-    "mediabunny": "^1.19.0",
-    "sharp": "^0.34.3"
+    "@roamhq/wrtc": "^0.9.1"
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",

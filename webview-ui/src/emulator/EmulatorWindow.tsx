@@ -1,15 +1,15 @@
-import { useWorkerController } from '../controllers/worker';
+import { useManager } from '../controllers/manager';
 import EmulatorTabBar from './EmulatorTabBar';
-import EmulatorCanvas from './EmulatorCanvas';
+import EmulatorWebRTCStream from './EmulatorWebRTCStream';
 
 export default function Emulator() {
-  const controller = useWorkerController();
+  const controller = useManager();
 
   return (
     <div id="emulatorWrapper" class="flex flex-col h-screen">
       <EmulatorTabBar controller={controller} />
       <div class="flex-1 flex items-center justify-center overflow-hidden">
-        <EmulatorCanvas controller={controller} />
+        <EmulatorWebRTCStream controller={controller} />
       </div>
     </div>
   );

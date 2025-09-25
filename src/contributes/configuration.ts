@@ -16,26 +16,14 @@ class ConfigurationStore {
 
   private defaultPreferences: {
     emulatorPath: string;
-    adbPath: string;
-    ffmpegPath: string;
   } = {
     emulatorPath: 'emulator',
-    adbPath: 'adb',
-    ffmpegPath: 'ffmpeg',
   };
 
   get emulatorPath(): string {
     return (
       this.getValue('emulatorPath') ?? this.defaultPreferences.emulatorPath
     );
-  }
-
-  get adbPath(): string {
-    return this.getValue('adbPath') ?? this.defaultPreferences.adbPath;
-  }
-
-  get ffmpegPath(): string {
-    return this.getValue('ffmpegPath') ?? this.defaultPreferences.ffmpegPath;
   }
 
   public getValue(key: PreferenceKey): any {

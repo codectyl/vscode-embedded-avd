@@ -1,15 +1,15 @@
-import { WorkerControllerType } from '../controllers/worker';
+import { Manager } from '../controllers/manager';
 
 export default function EmulatorTabBar({
   controller,
 }: {
-  controller: WorkerControllerType;
+  controller: Manager;
 }) {
   const sendKeyEvent = (
     key: 'AppSwitch' | 'GoBack' | 'GoHome' | 'Power',
     eventType: 'keydown' | 'keyup',
   ) => {
-    controller.sendKeypressEvent({
+    controller.sendEvent({
       type: 'key',
       key,
       keyCode: 0,
@@ -20,7 +20,7 @@ export default function EmulatorTabBar({
   return (
     <div class="flex items-center bg-[#2f2f2f] h-10 text-white font-sans text-sm">
       {/* Power (left) */}
-      <div class='flex-1'>
+      <div class="flex-1">
         <button
           class="justify-start px-3 hover:bg-[#3a3a3a]"
           onMouseDown={() => sendKeyEvent('Power', 'keydown')}
@@ -56,8 +56,7 @@ export default function EmulatorTabBar({
       </div>
 
       {/* Right spacer */}
-      <div class="flex-1 w-full">
-      </div>
+      <div class="flex-1 w-full"></div>
     </div>
   );
 }
