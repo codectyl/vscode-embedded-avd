@@ -34,16 +34,11 @@ export type WebviewToExtensionPayload =
   | ListEmulatorsPayload
   | MultiTouchPayload
   | TouchPayload
-  | KeyPressPayload;
-
-export interface FrameUpdatePayload {
-  type: 'frame';
-  data: Uint8Array<ArrayBufferLike>;
-  mimetype: string;
-  codec?: string;
-  size: { width: number; height: number };
-  actualDisplaySize: { width: number; height: number };
-}
+  | KeyPressPayload
+  | WebRTCAnswerMessage
+  | WebRTCOfferMessage
+  | WebRTCCandidateMessage
+  | { type: 'requestWebRTCConnection' };
 
 export interface ListEmulatorsResponsePayload {
   type: 'listEmulatorsResponse';
@@ -51,5 +46,29 @@ export interface ListEmulatorsResponsePayload {
 }
 
 export type ExtensionToWebviewPayload =
-  | FrameUpdatePayload
-  | ListEmulatorsResponsePayload;
+  | ListEmulatorsResponsePayload
+  | WebRTCAnswerMessage
+  | WebRTCOfferMessage
+  | WebRTCCandidateMessage
+  | { type: 'readyForWebRTC' };
+
+export type WebRTCMessage =
+  | WebRTCAnswerMessage
+  | WebRTCOfferMessage
+  | WebRTCCandidateMessage
+  | { type: 'requestWebRTCConnection' };
+
+export interface WebRTCOfferMessage {
+  type: 'webrtcOffer';
+  sdp: Record<string, unknown>;
+}
+
+export interface WebRTCAnswerMessage {
+  type: 'webrtcAnswer';
+  sdp: Record<string, unknown>;
+}
+
+export interface WebRTCCandidateMessage {
+  type: 'webrtcIceCandidate';
+  candidate: Record<string, unknown>;
+}

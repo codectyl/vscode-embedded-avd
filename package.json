@@ -53,6 +53,7 @@
     "@grpc/grpc-js": "^1.9.7",
     "@roamhq/wrtc": "^0.9.1",
     "mediabunny": "^1.19.0",
+    "mediasoup": "^3.19.3",
     "sharp": "^0.34.3"
   },
   "scripts": {

@@ -1,9 +1,9 @@
-import { WorkerControllerType } from '../controllers/worker';
+import { Manager } from '../controllers/manager';
 
 export default function EmulatorTabBar({
   controller,
 }: {
-  controller: WorkerControllerType;
+  controller: Manager;
 }) {
   const sendKeyEvent = (
     key: 'AppSwitch' | 'GoBack' | 'GoHome' | 'Power',

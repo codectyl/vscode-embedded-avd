@@ -52,7 +52,7 @@ class AvdManager {
         grpcPort.toString(),
         '-gpu',
         'auto',
-        '-no-window',
+        // '-no-window',
       ],
       { stdio: 'ignore' },
     );

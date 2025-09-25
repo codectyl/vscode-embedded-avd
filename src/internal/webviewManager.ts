@@ -11,7 +11,6 @@ import { generateRandomString, template } from '../utils/helpers';
 import { EmulatorManager } from './emulatorManager';
 import {
   ExtensionToWebviewPayload,
-  FrameUpdatePayload,
   WebviewToExtensionPayload,
 } from '../interfaces/payload';
 import AvdManager from './avdManager';
@@ -22,8 +21,7 @@ import {
   Image,
   ImageFormat_ImgFormat,
 } from '../generated/emulator_controller';
-import FFMpegRawEncoder from './encoder/ffmpeg-encoder';
-import { Size } from '../utils/models';
+import WebRTCHelper from './helpers/webrtc-helper';
 
 class WebviewManager {
   avdManager = new AvdManager();
@@ -57,6 +55,8 @@ class WebviewManager {
 }
 
 class EmulatorWebviewManager {
+  webrtcHelper: WebRTCHelper | undefined;
+
   async getWebviewContent(
     _context: ExtensionContext,
     webview: Webview,
@@ -96,39 +96,9 @@ class EmulatorWebviewManager {
   }
 
   frameStream: ClientReadableStream<Image> | undefined;
-  ffmpegEncoder: FFMpegRawEncoder | undefined;
 
-  private async setupFFMpegEncoder(size: Size) {
-    if (!(await FFMpegRawEncoder.checkFfmpegInstallation())) {
-      window.showErrorMessage(
-        'FFMPEG is not installed. Please install FFMPEG to use video streaming.',
-      );
-      throw new Error('FFMPEG is not installed');
-    }
-
-    const ffmpegProcess = new FFMpegRawEncoder({
-      resolution: size,
-      fps: 30,
-    });
-
-    ffmpegProcess.setupDataListener(
-      async ({ chunk, displayConfig, frameSize, mimeType }) => {
-        await this.postMessage({
-          type: 'frame',
-          data: chunk,
-          mimetype: mimeType,
-          size: {
-            width: frameSize.width,
-            height: frameSize.height,
-          },
-          actualDisplaySize: {
-            width: displayConfig.width,
-            height: displayConfig.height,
-          },
-        } satisfies FrameUpdatePayload);
-      },
-    );
-    return ffmpegProcess;
+  private async setupWebRTC() {
+    return new WebRTCHelper(this.postMessage.bind(this));
   }
 
   async streamFrames() {
@@ -138,7 +108,8 @@ class EmulatorWebviewManager {
     this.frameStream = this.emulatorManager.streamScreenshot({
       width: 360,
       height: 720,
-      format: ImageFormat_ImgFormat.RGB888,
+      // Using RGBA8888 as wrtc.nonstandard.RTCVideoSource expects RGBA format
+      format: ImageFormat_ImgFormat.RGBA8888,
     });
 
     let displayConfigs: DisplayConfigurations;
@@ -165,14 +136,13 @@ class EmulatorWebviewManager {
           return;
         }
 
-        if (!this.ffmpegEncoder) {
-          this.ffmpegEncoder = await this.setupFFMpegEncoder({
-            width: frame.format!.width,
-            height: frame.format!.height,
-          });
+        if (!this.webrtcHelper) {
+          this.webrtcHelper = await this.setupWebRTC();
         }
-
-        this.ffmpegEncoder?.addFrame(frame, displayConfig);
+        this.webrtcHelper?.putFrame(frame.image, {
+          width: frame.format!.width,
+          height: frame.format!.height,
+        });
       } finally {
         isProcessing = false;
       }
@@ -229,6 +199,11 @@ class EmulatorWebviewManager {
           case 'startEmulator':
             // TODO: Randomize gRPC port in case of multiple emulators
             return this.webviewManager.startEmulatorWebview(payload.name, 8554);
+          case 'webrtcOffer':
+          case 'webrtcIceCandidate':
+          case 'webrtcAnswer':
+          case 'requestWebRTCConnection':
+            return this.webrtcHelper!.handleWebRTCMessage(payload);
         }
       },
     );
@@ -237,8 +212,8 @@ class EmulatorWebviewManager {
       this.emulatorManager.dispose();
       this.frameStream?.cancel();
       this.frameStream?.destroy();
+      this.webrtcHelper?.close();
       this.webviewManager.instances.delete(this.emulatorManager.avdName);
-      this.ffmpegEncoder?.close();
     });
 
     this.streamFrames();
