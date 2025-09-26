@@ -18,7 +18,7 @@ Android Emulator installed and available in your PATH ie. `emulator` should be a
 1. Install dependencies:
    ```sh
    pnpm install
-   brew install protobuf
+   brew install protobuf (or your preferred way of installing packages)
    ```
 2. Install gRPC and codegen tools:
    ```sh

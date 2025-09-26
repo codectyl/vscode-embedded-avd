@@ -221,6 +221,9 @@ class EmulatorWebviewManager {
       this.frameStream?.destroy();
       this.webrtcHelper?.close();
       this.webviewManager.instances.delete(this.emulatorManager.avdName);
+      window.showInformationMessage(
+        `Emulator ${this.emulatorManager.avdName} stopped`,
+      );
     });
 
     this.streamFrames();

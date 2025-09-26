@@ -53,6 +53,8 @@ class WebRTCHelper {
     });
   }
 
+  frameInfo: FrameInfoDataChannelPayload | undefined;
+
   convertFrameToI420(frameData: Uint8Array, size: Size): RTCVideoFrame {
     const buff = new Uint8Array(size.width * size.height * 1.5);
     nonstandard.rgbaToI420(
@@ -88,14 +90,23 @@ class WebRTCHelper {
       this.convertFrameToI420(new Uint8Array(frameData), size),
     );
     // Send frame size and display config through data channel
-    // Should it be throttled ?
     if (this.frameInfoChannel.readyState === 'open') {
+      if (
+        size.width === this.frameInfo?.frameSize?.width &&
+        size.height === this.frameInfo?.frameSize?.height &&
+        displayConfig.height === this.frameInfo?.displayConfig?.height &&
+        displayConfig.width === this.frameInfo?.displayConfig?.width
+      ) {
+        // No change in frame size or display config
+        return;
+      }
       this.frameInfoChannel.send(
         JSON.stringify({
           frameSize: size,
           displayConfig,
         } satisfies FrameInfoDataChannelPayload),
       );
+      this.frameInfo = { frameSize: size, displayConfig };
     }
   }
 
