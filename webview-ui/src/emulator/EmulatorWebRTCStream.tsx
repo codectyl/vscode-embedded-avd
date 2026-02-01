@@ -1,63 +1,25 @@
 import { onCleanup, onMount } from 'solid-js';
+import type { FrameInfoDataChannelPayload } from '../../../src/interfaces/payload';
 import type { Manager } from '../controllers/manager';
 import CanvasListener from '../internal/helpers/canvas-listeners';
-import vscode from '../internal/vscode';
 
 type PropType = {
   controller: Manager;
 };
 
 export default function EmulatorWebRTCStream({ controller }: PropType) {
-  let videoRef: HTMLVideoElement | undefined;
-
-  const remoteStream: MediaStream = new MediaStream();
-
+  let canvasRef: HTMLCanvasElement | undefined;
   let canvasListener: CanvasListener | undefined;
-
   let frameInfo: FrameInfoDataChannelPayload | undefined;
 
-  let frameInfoDataChannel: RTCDataChannel | undefined;
-
-  onMount(async () => {
-    if (!videoRef) {
-      console.error('Video element not found');
-      return;
-    }
-    // Comment this code if you are hot reloading
-    const isReady = await controller.webRTCReady.promise;
-    if (!isReady) {
-      console.error('WebRTC not initialized from the extension side');
-      return;
-    }
-    //
-
-    controller.peerConnection.ontrack = (event) => {
-      if (event.track.kind !== 'video') return;
-      if (event.track && !videoRef.srcObject) {
-        remoteStream.addTrack(event.track);
-        videoRef.srcObject = remoteStream;
-        canvasListener = new CanvasListener(controller, videoRef);
-        canvasListener.setupListeners();
-      }
-    };
-
-    controller.peerConnection.ondatachannel = (event) => {
-      const channel = event.channel;
-      if (channel.label !== 'frameInfo') return;
-      frameInfoDataChannel = channel;
-      frameInfoDataChannel.onmessage = (msgEvent) => {
-        const data = JSON.parse(msgEvent.data) as FrameInfoDataChannelPayload;
-        canvasListener?.updateFrameInfo(data);
-        frameInfo = data;
-      };
-    };
+  onMount(() => {
+    if (!canvasRef) return;
 
     // Resize observer for adaptive streaming
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0) {
-          // Debounce resize events
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => {
             controller.resize(Math.round(width), Math.round(height));
@@ -66,36 +28,68 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
       }
     });
 
-    if (videoRef.parentElement) {
-      resizeObserver.observe(videoRef.parentElement);
+    if (canvasRef.parentElement) {
+      resizeObserver.observe(canvasRef.parentElement);
     }
 
-    onCleanup(() => resizeObserver.disconnect());
+    controller.onFrame(async (data) => {
+      if (typeof data === 'string') {
+        const parsed = JSON.parse(data);
+        if (parsed.type === 'metadata') {
+          frameInfo = parsed;
+          if (canvasRef) {
+            canvasRef.width = parsed.frameSize.width;
+            canvasRef.height = parsed.frameSize.height;
+            if (!canvasListener) {
+              canvasListener = new CanvasListener(controller, canvasRef);
+              canvasListener.setupListeners();
+            }
+            canvasListener.updateFrameInfo(parsed);
+          }
+        }
+      } else if (data instanceof ArrayBuffer) {
+        if (!canvasRef || !frameInfo) return;
+        const ctx = canvasRef.getContext('2d');
+        if (!ctx) return;
 
-    // Ready to establish WebRTC Connection
-    vscode.postMessage({ type: 'requestWebRTCConnection' });
+        try {
+          const blob = new Blob([data], { type: 'image/png' });
+          const bitmap = await createImageBitmap(blob);
+          ctx.drawImage(
+            bitmap,
+            0,
+            0,
+            frameInfo.frameSize.width,
+            frameInfo.frameSize.height,
+          );
+          bitmap.close();
+        } catch (e) {
+          console.error('[EmulatorStream] Rendering error:', e);
+        }
+      }
+    });
+
+    onCleanup(() => {
+      resizeObserver.disconnect();
+    });
   });
 
   let resizeTimeout: any;
 
   onCleanup(() => {
-    controller.peerConnection.ontrack = null;
-    controller.peerConnection.ondatachannel = null;
     canvasListener?.stopListeners();
   });
 
   return (
-    <>
-      <video
-        ref={videoRef}
-        autoplay
-        tabindex="0"
-        playsinline
-        muted
-        class="max-w-full max-h-full w-auto h-auto object-contain"
-        height={frameInfo?.frameSize.height}
-        width={frameInfo?.frameSize.width}
-      />
-    </>
+    <canvas
+      ref={canvasRef}
+      tabindex="0"
+      class="max-w-full max-h-full w-auto h-auto object-contain cursor-crosshair outline-none"
+      style={{
+        'aspect-ratio': frameInfo
+          ? `${frameInfo.frameSize.width} / ${frameInfo.frameSize.height}`
+          : 'auto',
+      }}
+    />
   );
 }

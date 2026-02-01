@@ -13,7 +13,6 @@ const extensionConfig: Configuration = {
   },
   externals: {
     vscode: 'commonjs vscode',
-    '@roamhq/wrtc': 'commonjs @roamhq/wrtc',
     // modules added here also need to be added in the .vscodeignore file
   },
   resolve: {

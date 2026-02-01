@@ -5,7 +5,7 @@ class CanvasListener {
 
   constructor(
     public controller: Manager,
-    public elRef: HTMLVideoElement,
+    public elRef: HTMLElement,
   ) {}
 
   frameInfo: FrameInfoDataChannelPayload | undefined;

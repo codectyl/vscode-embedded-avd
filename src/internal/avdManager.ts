@@ -28,6 +28,13 @@ class AvdManager {
     const grpcClient = new EmulatorControllerClient(
       `localhost:${grpcPort}`,
       grpc.credentials.createInsecure(),
+      {
+        'grpc.keepalive_time_ms': 10000,
+        'grpc.keepalive_timeout_ms': 5000,
+        'grpc.keepalive_permit_without_calls': 1,
+        'grpc.max_receive_message_length': 1024 * 1024 * 100, // 100MB
+        'grpc.max_send_message_length': 1024 * 1024 * 100,
+      },
     );
     await waitForClientReady(grpcClient, 50000);
     console.log('Connected to gRPC on port', grpcPort);

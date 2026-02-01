@@ -21,7 +21,7 @@ import type {
 import { generateRandomString, template } from '../utils/helpers';
 import AvdManager from './avdManager';
 import type { EmulatorManager } from './emulatorManager';
-import WebRTCHelper from './helpers/webrtc-helper';
+import WebSocketHelper from './helpers/websocket-helper';
 
 class WebviewManager {
   avdManager = new AvdManager();
@@ -44,6 +44,7 @@ class WebviewManager {
     }
     const emulatorManager = await this.avdManager.startEmulator(avdName, port);
     const newInstance = new EmulatorWebviewManager(this, emulatorManager);
+    await newInstance.init(); // Wait for panel and WS start
     this.instances.set(avdName, newInstance);
     return newInstance;
   }
@@ -57,7 +58,7 @@ class WebviewManager {
 }
 
 class EmulatorWebviewManager {
-  webrtcHelper: WebRTCHelper | undefined;
+  wsHelper: WebSocketHelper | undefined;
 
   async getWebviewContent(
     _context: ExtensionContext,
@@ -87,10 +88,34 @@ class EmulatorWebviewManager {
   constructor(
     private webviewManager: WebviewManager,
     private emulatorManager: EmulatorManager,
-  ) {
-    (async () => {
-      this.panel = await this.createPanel();
-    })();
+  ) {}
+
+  async init() {
+    this.panel = await this.createPanel();
+
+    this.wsHelper = new WebSocketHelper();
+    this.wsHelper.onMessage = (payload: WebviewToExtensionPayload) => {
+      switch (payload.type) {
+        case 'touch':
+          this.emulatorManager.sendTouch(payload);
+          break;
+        case 'key':
+          this.emulatorManager.sendKey(payload);
+          break;
+        case 'multiTouch':
+          this.emulatorManager.sendMultiTouch(payload);
+          break;
+        case 'resize':
+          this.resize(payload.width, payload.height);
+          break;
+      }
+    };
+    const wsPort = await this.wsHelper.start();
+
+    await this.postMessage({
+      type: 'readyForStreaming',
+      port: wsPort,
+    });
   }
 
   postMessage(payload: ExtensionToWebviewPayload) {
@@ -98,10 +123,6 @@ class EmulatorWebviewManager {
   }
 
   frameStream: ClientReadableStream<Image> | undefined;
-
-  private async setupWebRTC() {
-    return new WebRTCHelper(this.postMessage.bind(this));
-  }
 
   private currentWidth = 360;
   private currentHeight = 720;
@@ -113,24 +134,18 @@ class EmulatorWebviewManager {
       this.frameStream = undefined;
     }
 
-    let isProcessing = false;
-
     this.frameStream = this.emulatorManager.streamScreenshot({
       width: this.currentWidth,
       height: this.currentHeight,
-      // Using RGBA8888 as wrtc.nonstandard.RTCVideoSource expects RGBA format
-      format: ImageFormat_ImgFormat.RGBA8888,
+      format: ImageFormat_ImgFormat.PNG,
     });
 
     let displayConfigs: DisplayConfigurations;
 
     this.frameStream.on('data', async (frame: Image) => {
-      if (isProcessing) return;
       if (!frame || !frame.image) return;
 
       try {
-        isProcessing = true;
-
         if (!displayConfigs) {
           displayConfigs = await this.emulatorManager.getDisplayConfigs();
         }
@@ -138,36 +153,20 @@ class EmulatorWebviewManager {
         const displayConfig = displayConfigs.displays.find(
           (e) => e.display === frame.format?.display,
         );
-        if (!displayConfig) {
-          console.warn(
-            'No display config found for display:',
-            frame.format?.display,
+
+        if (displayConfig) {
+          this.wsHelper?.putFrame(
+            frame.image,
+            {
+              width: frame.format!.width,
+              height: frame.format!.height,
+            },
+            displayConfig,
           );
-          return;
         }
-
-        if (!this.webrtcHelper) {
-          this.webrtcHelper = await this.setupWebRTC();
-        }
-        this.webrtcHelper?.putFrame(
-          frame.image,
-          {
-            width: frame.format!.width,
-            height: frame.format!.height,
-          },
-          displayConfig,
-        );
-      } finally {
-        isProcessing = false;
+      } catch (err) {
+        console.error('Error in frame streaming:', err);
       }
-    });
-
-    this.frameStream.on('end', () => {
-      isProcessing = false;
-    });
-
-    this.frameStream.on('error', () => {
-      isProcessing = false;
     });
   }
 
@@ -181,6 +180,7 @@ class EmulatorWebviewManager {
   dispose() {
     this.panel?.dispose();
     this.emulatorManager.dispose();
+    this.wsHelper?.close();
   }
 
   private async createPanel(): Promise<WebviewPanel> {
@@ -219,19 +219,14 @@ class EmulatorWebviewManager {
           case 'multiTouch':
             return this.emulatorManager.sendMultiTouch(payload);
           case 'startEmulator':
-            // TODO: Randomize gRPC port in case of multiple emulators
             return this.webviewManager.startEmulatorWebview(payload.name, 8554);
-          case 'webrtcOffer':
-          case 'webrtcIceCandidate':
-          case 'webrtcAnswer':
-          case 'requestWebRTCConnection':
-            if (!this.webrtcHelper) {
-              throw new Error('WebRTC not initialized yet');
-            }
-            return this.webrtcHelper!.handleWebRTCMessage(payload);
           case 'resize':
             return this.resize(payload.width, payload.height);
+          case 'requestWebRTCConnection':
+            // Deprecated, but keeping for now
+            return;
         }
+        return;
       },
     );
 
@@ -239,7 +234,7 @@ class EmulatorWebviewManager {
       this.emulatorManager.dispose();
       this.frameStream?.cancel();
       this.frameStream?.destroy();
-      this.webrtcHelper?.close();
+      this.wsHelper?.close();
       this.webviewManager.instances.delete(this.emulatorManager.avdName);
       window.showInformationMessage(
         `Emulator ${this.emulatorManager.avdName} stopped`,

@@ -40,7 +40,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.7.0",
     "@grpc/grpc-js": "^1.9.7",
-    "@roamhq/wrtc": "^0.9.1"
+    "ws": "^8.19.0"
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
@@ -68,6 +68,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.103.0",
+    "@types/ws": "^8.18.1",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "babel-loader": "^10.0.0",

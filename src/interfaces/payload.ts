@@ -60,7 +60,8 @@ export type ExtensionToWebviewPayload =
   | WebRTCOfferMessage
   | WebRTCCandidateMessage
   | { type: 'readyForWebRTC' }
-  | { type: 'requestForWebRTC' };
+  | { type: 'requestForWebRTC' }
+  | { type: 'readyForStreaming'; port: number };
 
 export type WebRTCMessage =
   | WebRTCAnswerMessage

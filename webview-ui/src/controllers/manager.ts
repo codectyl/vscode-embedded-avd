@@ -11,6 +11,7 @@ export type Manager = ReturnType<typeof useManager>;
 
 export const useManager = () => {
   const [emulators, setEmulators] = createSignal<string[]>([]);
+  const [streamingPort, setStreamingPort] = createSignal<number | undefined>();
 
   const peerConnection = new RTCPeerConnection();
 
@@ -62,6 +63,10 @@ export const useManager = () => {
       case 'readyForWebRTC':
         webRTCReady.complete(true);
         break;
+      case 'readyForStreaming':
+        setStreamingPort(data.port);
+        connectWebSocket(data.port);
+        break;
       case 'requestForWebRTC':
         sendWebRTCOffer();
         break;
@@ -108,8 +113,29 @@ export const useManager = () => {
     return Promise.resolve(true);
   };
 
-  const sendEvent = (event: KeyPressPayload | MultiTouchPayload) => {
-    return vscode.postMessage(event);
+  let ws: WebSocket | undefined;
+  type FrameCallback = (data: ArrayBuffer | string) => void;
+  const frameCallbacks = new Set<FrameCallback>();
+
+  const connectWebSocket = (port: number) => {
+    if (ws) ws.close();
+    const host = '127.0.0.1';
+    ws = new WebSocket(`ws://${host}:${port}`);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onmessage = (event) => {
+      for (const cb of frameCallbacks) {
+        cb(event.data);
+      }
+    };
+
+    ws.onclose = () => console.log('[Manager] WS Closed');
+    ws.onerror = (e) => console.error('[Manager] WS Error', e);
+  };
+
+  const onFrame = (cb: FrameCallback) => {
+    frameCallbacks.add(cb);
+    onCleanup(() => frameCallbacks.delete(cb));
   };
 
   const goHome = () =>
@@ -140,10 +166,19 @@ export const useManager = () => {
       eventType: 'keydown',
     });
 
+  const sendEvent = (event: WebviewToExtensionPayload) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(event));
+    } else {
+      vscode.postMessage(event);
+    }
+  };
+
   onMount(() => window.addEventListener('message', handleMessage));
 
   onCleanup(() => {
     peerConnection.close();
+    ws?.close();
     window.removeEventListener('message', handleMessage);
   });
 
@@ -160,7 +195,9 @@ export const useManager = () => {
     togglePower,
     volumeUp,
     volumeDown,
+    streamingPort,
+    onFrame,
     resize: (width: number, height: number) =>
-      vscode.postMessage({ type: 'resize', width, height }),
+      sendEvent({ type: 'resize', width, height }),
   };
 };

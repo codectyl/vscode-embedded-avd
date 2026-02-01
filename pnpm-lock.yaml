@@ -14,9 +14,9 @@ importers:
       '@grpc/grpc-js':
         specifier: ^1.9.7
         version: 1.14.3
-      '@roamhq/wrtc':
-        specifier: ^0.9.1
-        version: 0.9.1
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
     devDependencies:
       '@babel/core':
         specifier: ^7.28.4
@@ -51,6 +51,9 @@ importers:
       '@types/vscode':
         specifier: ^1.103.0
         version: 1.108.0
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       '@vscode/test-cli':
         specifier: ^0.0.11
         version: 0.0.11
@@ -836,34 +839,6 @@ packages:
   '@protobufjs/utf8@1.1.0':
     resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
-  '@roamhq/wrtc-darwin-arm64@0.9.1':
-    resolution: {integrity: sha512-+g0+nLeZrsAeuzD663y9wbkRns8s/u5nMt/swiUa0G0mQaIRc7zSe77gRGd3E4lMgQ2VyUMV607SCM1OjVdmyg==}
-    cpu: [arm64]
-    os: [darwin]
-
-  '@roamhq/wrtc-darwin-x64@0.9.1':
-    resolution: {integrity: sha512-W24zSe9s6c9Tu1owP8RHg7xqW/JRMl6TRAf8pLWGgXuIeI79jVx1A9MvKTlwLM4AAZmWY0rMHYOzJg6aTb+qkQ==}
-    cpu: [x64]
-    os: [darwin]
-
-  '@roamhq/wrtc-linux-arm64@0.9.1':
-    resolution: {integrity: sha512-PeXkYGNcojjXvpHbI+R/YIUUkTWVrFaS5iQD55iGYbGBcBzU23wzpK0x/TvCQ0Ok4gimK985tgHKimbsVrs2Yw==}
-    cpu: [arm64]
-    os: [linux]
-
-  '@roamhq/wrtc-linux-x64@0.9.1':
-    resolution: {integrity: sha512-LuhzPdMM3i8vs/ifdj1F1pjpX2OhJSCWdh03UQXjRHoX+Fi1oJXiZRwKoVKu1BbsKCYfJ8m9jZB1ZU4Lhi8yHw==}
-    cpu: [x64]
-    os: [linux]
-
-  '@roamhq/wrtc-win32-x64@0.9.1':
-    resolution: {integrity: sha512-xyxqCpHxp71MY/3LaFTj3WDvOnu8GaDht1M0LAIGamwkQUg45X/zkzbfeIS7g8f/ZvItAjFa6cUkSUuhK3/rGg==}
-    cpu: [x64]
-    os: [win32]
-
-  '@roamhq/wrtc@0.9.1':
-    resolution: {integrity: sha512-WQH9DaN3kGv9+wxeRtxkSykmVQWl44VTX9XsMLmR5jtcsGxin+72U9uGlDjME0gwNNBHDKY3CgUGYI8ZYg8Jdw==}
-
   '@rspack/binding-darwin-arm64@1.7.1':
     resolution: {integrity: sha512-3C0w0kfCHfgOH+AP/Dx1bm/b3AR/or5CmU22Abevek0m95ndU3iT902eLcm9JNiMQnDQLBQbolfj5P591t0oPg==}
     cpu: [arm64]
@@ -1625,11 +1600,6 @@ packages:
   dns-packet@5.6.1:
     resolution: {integrity: sha512-l4gcSouhcgIKRvyy99RNVOgxXiicE+2jZoNmaNmZ6JXiGajBOJAesk1OBlJuM5k2c+eudGdLxDqXuPCKIj6kpw==}
     engines: {node: '>=6'}
-
-  domexception@4.0.0:
-    resolution: {integrity: sha512-A2is4PLG+eeSfoTMA95/s4pvAoSo2mKtiM5jlHkAVewmiO8ISFTFKZjH7UAM1Atli/OT/7JHOrJRJiMKUZKYBw==}
-    engines: {node: '>=12'}
-    deprecated: Use your platform's native DOMException instead
 
   dprint-node@1.0.8:
     resolution: {integrity: sha512-iVKnUtYfGrYcW1ZAlfR/F59cUVL8QIhWoBJoSjkkdua/dkWIgjZfiLMeTjiB06X0ZLkQ0M2C1VbUj/CxkIf1zg==}
@@ -3285,10 +3255,6 @@ packages:
   wbuf@1.7.3:
     resolution: {integrity: sha512-O84QOnr0icsbFGLS0O3bI5FswxzRr8/gHwWkDlQFskhSPryQXvrTMxjxGP4+iWYoauLoBvfDpkrOauZ+0iZpDA==}
 
-  webidl-conversions@7.0.0:
-    resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
-    engines: {node: '>=12'}
-
   webpack-bundle-analyzer@4.10.2:
     resolution: {integrity: sha512-vJptkMm9pk5si4Bv922ZbKLV8UTT4zib4FPgXMhgzUny0bfDDkLXAVQs3ly3fS4/TN9ROFtb0NFrm04UXFE/Vw==}
     engines: {node: '>= 10.13.0'}
@@ -4342,30 +4308,6 @@ snapshots:
 
   '@protobufjs/utf8@1.1.0': {}
 
-  '@roamhq/wrtc-darwin-arm64@0.9.1':
-    optional: true
-
-  '@roamhq/wrtc-darwin-x64@0.9.1':
-    optional: true
-
-  '@roamhq/wrtc-linux-arm64@0.9.1':
-    optional: true
-
-  '@roamhq/wrtc-linux-x64@0.9.1':
-    optional: true
-
-  '@roamhq/wrtc-win32-x64@0.9.1':
-    optional: true
-
-  '@roamhq/wrtc@0.9.1':
-    optionalDependencies:
-      '@roamhq/wrtc-darwin-arm64': 0.9.1
-      '@roamhq/wrtc-darwin-x64': 0.9.1
-      '@roamhq/wrtc-linux-arm64': 0.9.1
-      '@roamhq/wrtc-linux-x64': 0.9.1
-      '@roamhq/wrtc-win32-x64': 0.9.1
-      domexception: 4.0.0
-
   '@rspack/binding-darwin-arm64@1.7.1':
     optional: true
 
@@ -5187,11 +5129,6 @@ snapshots:
   dns-packet@5.6.1:
     dependencies:
       '@leichtgewicht/ip-codec': 2.0.5
-
-  domexception@4.0.0:
-    dependencies:
-      webidl-conversions: 7.0.0
-    optional: true
 
   dprint-node@1.0.8:
     dependencies:
@@ -6953,9 +6890,6 @@ snapshots:
   wbuf@1.7.3:
     dependencies:
       minimalistic-assert: 1.0.1
-
-  webidl-conversions@7.0.0:
-    optional: true
 
   webpack-bundle-analyzer@4.10.2:
     dependencies:
