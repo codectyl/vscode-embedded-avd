@@ -1,26 +1,26 @@
-import path from 'path';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { ClientReadableStream } from '@grpc/grpc-js';
 import {
-  ExtensionContext,
+  type ExtensionContext,
   Uri,
   ViewColumn,
-  Webview,
-  WebviewPanel,
+  type Webview,
+  type WebviewPanel,
   window,
 } from 'vscode';
-import { generateRandomString, template } from '../utils/helpers';
-import { EmulatorManager } from './emulatorManager';
 import {
+  type DisplayConfigurations,
+  type Image,
+  ImageFormat_ImgFormat,
+} from '../generated/emulator_controller';
+import type {
   ExtensionToWebviewPayload,
   WebviewToExtensionPayload,
 } from '../interfaces/payload';
+import { generateRandomString, template } from '../utils/helpers';
 import AvdManager from './avdManager';
-import { readFile } from 'fs/promises';
-import { ClientReadableStream } from '@grpc/grpc-js';
-import {
-  DisplayConfigurations,
-  Image,
-  ImageFormat_ImgFormat,
-} from '../generated/emulator_controller';
+import type { EmulatorManager } from './emulatorManager';
 import WebRTCHelper from './helpers/webrtc-helper';
 
 class WebviewManager {
@@ -36,7 +36,7 @@ class WebviewManager {
 
   constructor(public context: ExtensionContext) {}
 
-  async startEmulatorWebview(avdName: string, port: number) {
+  async startEmulatorWebview(avdName: string, port?: number) {
     if (this.instances.has(avdName)) {
       const instance = this.instances.get(avdName);
       instance?.panel.reveal(ViewColumn.Two);
@@ -49,7 +49,9 @@ class WebviewManager {
   }
 
   dispose() {
-    this.instances.forEach((instance) => instance.dispose());
+    for (const instance of this.instances.values()) {
+      instance.dispose();
+    }
     this.instances.clear();
   }
 }
@@ -101,13 +103,21 @@ class EmulatorWebviewManager {
     return new WebRTCHelper(this.postMessage.bind(this));
   }
 
+  private currentWidth = 360;
+  private currentHeight = 720;
+
   async streamFrames() {
-    if (this.frameStream) return;
+    if (this.frameStream) {
+      this.frameStream.cancel();
+      this.frameStream.destroy();
+      this.frameStream = undefined;
+    }
+
     let isProcessing = false;
 
     this.frameStream = this.emulatorManager.streamScreenshot({
-      width: 360,
-      height: 720,
+      width: this.currentWidth,
+      height: this.currentHeight,
       // Using RGBA8888 as wrtc.nonstandard.RTCVideoSource expects RGBA format
       format: ImageFormat_ImgFormat.RGBA8888,
     });
@@ -161,6 +171,13 @@ class EmulatorWebviewManager {
     });
   }
 
+  async resize(width: number, height: number) {
+    if (this.currentWidth === width && this.currentHeight === height) return;
+    this.currentWidth = width;
+    this.currentHeight = height;
+    await this.streamFrames();
+  }
+
   dispose() {
     this.panel?.dispose();
     this.emulatorManager.dispose();
@@ -168,7 +185,7 @@ class EmulatorWebviewManager {
 
   private async createPanel(): Promise<WebviewPanel> {
     const webViewDirUri = this.webviewManager.webViewDirUri;
-    let panel = window.createWebviewPanel(
+    const panel = window.createWebviewPanel(
       'embeddedAvd',
       this.emulatorManager.avdName,
       ViewColumn.Two,
@@ -186,7 +203,7 @@ class EmulatorWebviewManager {
     panel.webview.onDidReceiveMessage(
       async (payload: WebviewToExtensionPayload) => {
         switch (payload.type) {
-          case 'listEmulators':
+          case 'listEmulators': {
             const emulators =
               await this.webviewManager.avdManager.getAvailableEmulators();
             await this.postMessage({
@@ -194,6 +211,7 @@ class EmulatorWebviewManager {
               emulators: emulators,
             });
             return;
+          }
           case 'touch':
             return this.emulatorManager.sendTouch(payload);
           case 'key':
@@ -211,6 +229,8 @@ class EmulatorWebviewManager {
               throw new Error('WebRTC not initialized yet');
             }
             return this.webrtcHelper!.handleWebRTCMessage(payload);
+          case 'resize':
+            return this.resize(payload.width, payload.height);
         }
       },
     );

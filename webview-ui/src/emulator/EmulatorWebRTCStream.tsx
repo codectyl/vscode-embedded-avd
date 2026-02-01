@@ -1,7 +1,7 @@
 import { onCleanup, onMount } from 'solid-js';
-import { Manager } from '../controllers/manager';
-import vscode from '../internal/vscode';
+import type { Manager } from '../controllers/manager';
 import CanvasListener from '../internal/helpers/canvas-listeners';
+import vscode from '../internal/vscode';
 
 type PropType = {
   controller: Manager;
@@ -52,9 +52,31 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
       };
     };
 
+    // Resize observer for adaptive streaming
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          // Debounce resize events
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            controller.resize(Math.round(width), Math.round(height));
+          }, 300);
+        }
+      }
+    });
+
+    if (videoRef.parentElement) {
+      resizeObserver.observe(videoRef.parentElement);
+    }
+
+    onCleanup(() => resizeObserver.disconnect());
+
     // Ready to establish WebRTC Connection
     vscode.postMessage({ type: 'requestWebRTCConnection' });
   });
+
+  let resizeTimeout: any;
 
   onCleanup(() => {
     controller.peerConnection.ontrack = null;
@@ -73,7 +95,7 @@ export default function EmulatorWebRTCStream({ controller }: PropType) {
         class="max-w-full max-h-full w-auto h-auto object-contain"
         height={frameInfo?.frameSize.height}
         width={frameInfo?.frameSize.width}
-      ></video>
+      />
     </>
   );
 }

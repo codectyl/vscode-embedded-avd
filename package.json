@@ -7,9 +7,7 @@
     "vscode": "^1.103.0"
   },
   "publisher": "codectyl",
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [],
   "author": {
     "name": "Codectyl",
@@ -51,15 +49,18 @@
     "package": "rspack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "format": "prettier --write .",
+    "format": "biome format --write .",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "biome check .",
+    "test": "vscode-test",
+    "proto:generate": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=./src/generated --ts_proto_opt=esModuleInterop=true,outputServices=grpc-js -I ./src/proto ./src/proto/emulator_controller.proto",
+    "biome:fix": "biome check --write ."
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-typescript": "^7.27.1",
+    "@biomejs/biome": "1.9.4",
     "@rspack/cli": "^1.5.3",
     "@rspack/core": "^1.5.3",
     "@tailwindcss/postcss": "^4.1.13",
@@ -67,19 +68,14 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/vscode": "^1.103.0",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "babel-loader": "^10.0.0",
     "babel-preset-solid": "^1.9.9",
     "css-loader": "^7.1.2",
-    "eslint": "^9.34.0",
-    "eslint-config-prettier": "^10.1.8",
     "npm-run-all": "^4.1.5",
     "postcss": "^8.5.6",
     "postcss-loader": "^8.2.0",
-    "prettier": "^3.6.2",
     "solid-js": "^1.9.9",
     "solid-refresh": "^0.7.5",
     "solid-styled-jsx": "^0.27.1",

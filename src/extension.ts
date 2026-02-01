@@ -1,19 +1,27 @@
 import {
-  commands,
-  ExtensionContext,
+  type ExtensionContext,
   ExtensionMode,
-  QuickPickItem,
+  type QuickPickItem,
   RelativePattern,
-  Uri,
+  StatusBarAlignment,
+  type StatusBarItem,
+  type Uri,
+  commands,
   window,
   workspace,
 } from 'vscode';
 import WebviewManager from './internal/webviewManager';
 
 let webviewManager: WebviewManager | undefined;
+let statusBarItem: StatusBarItem;
 
 export function activate(context: ExtensionContext) {
   webviewManager = new WebviewManager(context);
+
+  statusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 100);
+  statusBarItem.command = 'embeddedAvd.start';
+  context.subscriptions.push(statusBarItem);
+
   if (context.extensionMode === ExtensionMode.Development) {
     watchWebviewChanges(context, webviewManager.webViewDirUri);
   }
@@ -30,7 +38,11 @@ export function activate(context: ExtensionContext) {
         canPickMany: false,
       });
       if (!selection) return;
-      await webviewManager!.startEmulatorWebview(selection.label, 8554);
+      await webviewManager!.startEmulatorWebview(selection.label);
+
+      statusBarItem.text = `$(device-mobile) AVD: ${selection.label}`;
+      statusBarItem.show();
+
       window.showInformationMessage(`Started emulator ${selection.label}`);
     }),
   );

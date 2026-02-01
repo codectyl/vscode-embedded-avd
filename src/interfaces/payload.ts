@@ -1,4 +1,4 @@
-import { DisplayConfiguration } from '../generated/emulator_controller';
+import type { DisplayConfiguration } from '../generated/emulator_controller';
 
 export interface MultiTouchPayload {
   type: 'multiTouch';
@@ -31,6 +31,12 @@ export interface ListEmulatorsPayload {
   type: 'listEmulators';
 }
 
+export interface ResizePayload {
+  type: 'resize';
+  width: number;
+  height: number;
+}
+
 export type WebviewToExtensionPayload =
   | StartEmulatorPayload
   | ListEmulatorsPayload
@@ -40,6 +46,7 @@ export type WebviewToExtensionPayload =
   | WebRTCAnswerMessage
   | WebRTCOfferMessage
   | WebRTCCandidateMessage
+  | ResizePayload
   | { type: 'requestWebRTCConnection' };
 
 export interface ListEmulatorsResponsePayload {

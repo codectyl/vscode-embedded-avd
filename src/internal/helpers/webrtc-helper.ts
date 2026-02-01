@@ -1,19 +1,19 @@
 import {
+  type MediaStreamTrack,
+  type RTCDataChannel,
   RTCPeerConnection,
-  MediaStreamTrack,
+  type RTCPeerConnectionIceEvent,
   nonstandard,
-  RTCPeerConnectionIceEvent,
-  RTCDataChannel,
 } from '@roamhq/wrtc';
 
-import {
+import type { RTCVideoFrame } from '@roamhq/wrtc/types/nonstandard';
+import type { DisplayConfiguration } from '../../generated/emulator_controller';
+import type {
   ExtensionToWebviewPayload,
   FrameInfoDataChannelPayload,
   WebRTCMessage,
 } from '../../interfaces/payload';
-import { Size } from '../../utils/models';
-import { RTCVideoFrame } from '@roamhq/wrtc/types/nonstandard';
-import { DisplayConfiguration } from '../../generated/emulator_controller';
+import type { Size } from '../../utils/models';
 
 class WebRTCHelper {
   peerConnection: RTCPeerConnection;
@@ -117,15 +117,15 @@ class WebRTCHelper {
     }
     if (message.type === 'webrtcAnswer') {
       await this.peerConnection.setRemoteDescription({
-        type: message.sdp['type'],
-        sdp: message.sdp['sdp'],
+        type: message.sdp.type,
+        sdp: message.sdp.sdp,
       });
       return;
     }
     if (message.type === 'webrtcOffer') {
       await this.peerConnection.setRemoteDescription({
-        type: message.sdp['type'],
-        sdp: message.sdp['sdp'],
+        type: message.sdp.type,
+        sdp: message.sdp.sdp,
       });
 
       const answer = await this.peerConnection.createAnswer();

@@ -26,7 +26,7 @@ class ConfigurationStore {
     );
   }
 
-  public getValue(key: PreferenceKey): any {
+  public getValue(key: PreferenceKey): string | undefined {
     return this.getPreferenceFromVSCode(key) ?? this.defaultPreferences[key];
   }
 

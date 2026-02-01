@@ -1,9 +1,7 @@
-'use strict';
-
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { Configuration } from '@rspack/core';
 import rspack from '@rspack/core';
-import path from 'path';
-import fs from 'fs/promises';
 
 const extensionConfig: Configuration = {
   target: 'node',

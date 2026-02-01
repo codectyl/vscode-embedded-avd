@@ -1,4 +1,4 @@
-import { Client, ClientUnaryCall, ServiceError } from '@grpc/grpc-js';
+import type { Client, ClientUnaryCall, ServiceError } from '@grpc/grpc-js';
 
 type GRPCCallback<ResponseType> = (
   error: ServiceError | null,
@@ -35,8 +35,8 @@ export const GRPCAsync = (client: Client) => ({
     fn: GRPCMethod<RequestType, ResponseType>,
     args: RequestType,
   ): Promise<ResponseType> => {
-    fn = fn.bind(client);
-    return grpcAsync(fn, args);
+    const boundFn = fn.bind(client);
+    return grpcAsync(boundFn, args);
   },
 });
 

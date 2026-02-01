@@ -1,4 +1,4 @@
-import { Manager } from '../../controllers/manager';
+import type { Manager } from '../../controllers/manager';
 
 class CanvasListener {
   isDown = false;

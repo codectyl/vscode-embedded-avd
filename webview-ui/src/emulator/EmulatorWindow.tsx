@@ -1,6 +1,7 @@
 import { useManager } from '../controllers/manager';
 import EmulatorTabBar from './EmulatorTabBar';
 import EmulatorWebRTCStream from './EmulatorWebRTCStream';
+import Toolbar from './Toolbar';
 
 export default function Emulator() {
   const controller = useManager();
@@ -8,7 +9,8 @@ export default function Emulator() {
   return (
     <div id="emulatorWrapper" class="flex flex-col h-screen">
       <EmulatorTabBar controller={controller} />
-      <div class="flex-1 flex items-center justify-center overflow-hidden">
+      <Toolbar controller={controller} />
+      <div class="flex-1 flex items-center justify-center overflow-hidden bg-black">
         <EmulatorWebRTCStream controller={controller} />
       </div>
     </div>

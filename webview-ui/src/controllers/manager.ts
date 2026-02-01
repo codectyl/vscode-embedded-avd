@@ -1,11 +1,11 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
-import vscode from '../internal/vscode';
-import {
-  type WebRTCAnswerMessage,
-  type WebRTCOfferMessage,
-  type WebRTCCandidateMessage,
+import type {
+  WebRTCAnswerMessage,
+  WebRTCCandidateMessage,
+  WebRTCOfferMessage,
 } from '../../../src/interfaces/payload';
 import { Completer } from '../internal/helpers/completer';
+import vscode from '../internal/vscode';
 
 export type Manager = ReturnType<typeof useManager>;
 
@@ -40,7 +40,7 @@ export const useManager = () => {
   const acceptOffer = async (data: WebRTCOfferMessage) => {
     await peerConnection.setRemoteDescription(
       // @ts-ignore
-      new RTCSessionDescription(data['sdp']),
+      new RTCSessionDescription(data.sdp),
     );
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -92,15 +92,15 @@ export const useManager = () => {
     await peerConnection.setRemoteDescription(
       new RTCSessionDescription({
         // @ts-ignore
-        type: data.sdp['type'],
+        type: data.sdp.type,
         // @ts-ignore
-        sdp: data.sdp['sdp'],
+        sdp: data.sdp.sdp,
       }),
     );
   }
 
   const refreshAvailableEmulators = (): void => {
-    return vscode.postMessage({ type: 'listEmulators' });
+    vscode.postMessage({ type: 'listEmulators' });
   };
 
   const startEmulator = (name: string): Promise<boolean> => {
@@ -111,6 +111,34 @@ export const useManager = () => {
   const sendEvent = (event: KeyPressPayload | MultiTouchPayload) => {
     return vscode.postMessage(event);
   };
+
+  const goHome = () =>
+    sendEvent({ type: 'key', key: 'Home', keyCode: 3, eventType: 'keydown' });
+  const goBack = () =>
+    sendEvent({ type: 'key', key: 'Back', keyCode: 4, eventType: 'keydown' });
+  const showRecents = () =>
+    sendEvent({
+      type: 'key',
+      key: 'AppSwitch',
+      keyCode: 187,
+      eventType: 'keydown',
+    });
+  const togglePower = () =>
+    sendEvent({ type: 'key', key: 'Power', keyCode: 26, eventType: 'keydown' });
+  const volumeUp = () =>
+    sendEvent({
+      type: 'key',
+      key: 'VolumeUp',
+      keyCode: 24,
+      eventType: 'keydown',
+    });
+  const volumeDown = () =>
+    sendEvent({
+      type: 'key',
+      key: 'VolumeDown',
+      keyCode: 25,
+      eventType: 'keydown',
+    });
 
   onMount(() => window.addEventListener('message', handleMessage));
 
@@ -126,5 +154,13 @@ export const useManager = () => {
     peerConnection,
     webRTCReady,
     sendEvent,
+    goHome,
+    goBack,
+    showRecents,
+    togglePower,
+    volumeUp,
+    volumeDown,
+    resize: (width: number, height: number) =>
+      vscode.postMessage({ type: 'resize', width, height }),
   };
 };

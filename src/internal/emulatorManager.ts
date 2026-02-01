@@ -1,23 +1,23 @@
-import cp from 'child_process';
-import * as grpc from '@grpc/grpc-js';
+import type cp from 'node:child_process';
+import type * as grpc from '@grpc/grpc-js';
+import { GRPCClientNotConnectedError } from '../errors/error';
 import {
-  DisplayConfigurations,
-  EmulatorControllerClient,
-  EmulatorStatus,
-  Image,
+  type DisplayConfigurations,
+  type EmulatorControllerClient,
+  type EmulatorStatus,
+  type Image,
   ImageFormat,
   ImageFormat_ImgFormat,
   KeyboardEvent,
   KeyboardEvent_KeyCodeType,
   KeyboardEvent_KeyEventType,
-  Touch,
+  type Touch,
 } from '../generated/emulator_controller';
-import {
+import type {
   KeyPressPayload,
   MultiTouchPayload,
   TouchPayload,
 } from '../interfaces/payload';
-import { GRPCClientNotConnectedError } from '../errors/error';
 import { GRPCAsync } from '../utils/grpc';
 
 function ensureGRPCClientConnected(
@@ -34,6 +34,7 @@ export class EmulatorManager {
     public avdName: string,
     public emulatorProcess: cp.ChildProcess,
     public grpcClient: EmulatorControllerClient,
+    public grpcPort: number,
   ) {}
 
   async getEmulatorStatus(): Promise<EmulatorStatus> {
@@ -78,36 +79,38 @@ export class EmulatorManager {
     const event = KeyboardEvent.create({
       key: msg.key,
       keyCode: msg.keyCode,
+      codeType: this.getKeyCodeType(),
+      eventType: this.getKeyEventType(msg.eventType),
     });
 
+    return GRPCAsync(this.grpcClient).run(this.grpcClient.sendKey, event);
+  }
+
+  private getKeyCodeType(): KeyboardEvent_KeyCodeType {
     switch (process.platform) {
       case 'darwin':
-        event.codeType = KeyboardEvent_KeyCodeType.Mac;
-        break;
+        return KeyboardEvent_KeyCodeType.Mac;
       case 'win32':
-        event.codeType = KeyboardEvent_KeyCodeType.Win;
-        break;
+        return KeyboardEvent_KeyCodeType.Win;
       case 'linux':
       case 'freebsd':
-        event.codeType = KeyboardEvent_KeyCodeType.XKB;
-        break;
+        return KeyboardEvent_KeyCodeType.XKB;
       default:
-        event.codeType = KeyboardEvent_KeyCodeType.Usb;
+        return KeyboardEvent_KeyCodeType.Usb;
     }
+  }
 
-    switch (msg.eventType) {
+  private getKeyEventType(type: string): KeyboardEvent_KeyEventType {
+    switch (type) {
       case 'keydown':
-        event.eventType = KeyboardEvent_KeyEventType.keydown;
-        break;
+        return KeyboardEvent_KeyEventType.keydown;
       case 'keyup':
-        event.eventType = KeyboardEvent_KeyEventType.keyup;
-        break;
+        return KeyboardEvent_KeyEventType.keyup;
       case 'keypress':
-        event.eventType = KeyboardEvent_KeyEventType.keypress;
-        break;
+        return KeyboardEvent_KeyEventType.keypress;
+      default:
+        return KeyboardEvent_KeyEventType.keydown;
     }
-
-    return GRPCAsync(this.grpcClient).run(this.grpcClient.sendKey, event);
   }
 
   async getScreenshot({

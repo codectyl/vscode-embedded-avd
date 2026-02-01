@@ -1,32 +1,28 @@
-import cp from 'child_process';
+import cp from 'node:child_process';
+import * as grpc from '@grpc/grpc-js';
 import configurationStore from '../contributes/configuration';
 import { EmulatorControllerClient } from '../generated/emulator_controller';
-import * as grpc from '@grpc/grpc-js';
-import { EmulatorManager } from './emulatorManager';
 import { waitForClientReady } from '../utils/grpc';
+import { getAvailablePort } from '../utils/network';
+import { EmulatorManager } from './emulatorManager';
 
 class AvdManager {
   getAvailableEmulators(): Promise<string[]> {
     const emulatorPath = configurationStore.emulatorPath;
     return new Promise((resolve, reject) => {
-      cp.exec(
-        `${emulatorPath} -list-avds`,
-        (error: any, stdout: string, stderr: any) => {
-          if (error) {
-            reject(`Error listing AVDs: ${stderr}`);
-          } else {
-            const avds = stdout
-              .split('\n')
-              .filter((line) => line.trim() !== '');
-            resolve(avds);
-          }
-        },
-      );
+      cp.exec(`${emulatorPath} -list-avds`, (error, stdout, stderr) => {
+        if (error) {
+          reject(`Error listing AVDs: ${stderr}`);
+        } else {
+          const avds = stdout.split('\n').filter((line) => line.trim() !== '');
+          resolve(avds);
+        }
+      });
     });
   }
 
   private async connectGrpc(
-    grpcPort: number = 8554,
+    grpcPort: number,
   ): Promise<EmulatorControllerClient> {
     console.log('Connecting to gRPC on port', grpcPort);
     const grpcClient = new EmulatorControllerClient(
@@ -40,8 +36,9 @@ class AvdManager {
 
   startEmulator = async (
     avdName: string,
-    grpcPort: number = 8554,
+    requestedPort?: number,
   ): Promise<EmulatorManager> => {
+    const grpcPort = requestedPort ?? (await getAvailablePort(8554));
     const emulatorPath = configurationStore.emulatorPath;
     const emulatorProcess = cp.spawn(
       emulatorPath,
@@ -63,7 +60,7 @@ class AvdManager {
       );
       grpcClient?.close();
     });
-    return new EmulatorManager(avdName, emulatorProcess, grpcClient);
+    return new EmulatorManager(avdName, emulatorProcess, grpcClient, grpcPort);
   };
 }
 
